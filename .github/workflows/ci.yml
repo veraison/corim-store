@@ -1,0 +1,31 @@
+# GitHub Actions - CI for Go to build & test.  See ci-go-cover.yml and linters.yml for code coverage and linters.
+# Taken from: https://github.com/fxamacker/cbor/workflows/ci.yml (thanks!)
+name: ci
+on: [push, pull_request]
+jobs:
+
+  # Test on various OS with specified Go version.
+  tests:
+    name: Test on ${{matrix.os}}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version: "1.25.1"
+    - name: Install golangci-lint
+      run: |
+        go version
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Build project
+      run: make
+    - name: Run tests
+      run: |
+        go version
+        make presubmit
