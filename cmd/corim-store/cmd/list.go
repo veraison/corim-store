@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
+	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim-store/pkg/store"
 	"github.com/veraison/corim-store/pkg/util"
 )
@@ -26,6 +28,19 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 	var err error
 	what := util.Normalize(args[0])
 
+	env, err := BuildEnvironment(cmd)
+	CheckErr(err)
+
+	label, err := cmd.Flags().GetString("label")
+	if err != nil {
+		return err
+	}
+
+	exact, err := cmd.Flags().GetBool("exact")
+	if err != nil {
+		return err
+	}
+
 	store, err := store.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
@@ -35,6 +50,10 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 	var header []any
 	var rows [][]any
 
+	if what != "triples" && !env.IsEmpty() {
+		return errors.New("environment specifiers are only allowed for triples")
+	}
+
 	switch what {
 	case "manifests", "corims":
 		header, rows, err = listManifests(store)
@@ -42,6 +61,8 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 		header, rows, err = listModuleTags(store)
 	case "entities":
 		header, rows, err = listEntities(store)
+	case "triples":
+		header, rows, err = listTriples(store, env, label, exact)
 	default:
 		return fmt.Errorf("unsupported list target: %s", what)
 	}
@@ -61,6 +82,7 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 		colConfigs = append(colConfigs, table.ColumnConfig{
 			Name:        h.(string),
 			AlignHeader: text.AlignCenter,
+			VAlign:      text.VAlignMiddle,
 		})
 	}
 	tw.SetColumnConfigs(colConfigs)
@@ -188,6 +210,96 @@ func listEntities(store *store.Store) ([]any, [][]any, error) {
 	return retCols, ret, nil
 }
 
+func listTriples(
+	store *store.Store,
+	env *model.Environment,
+	label string,
+	exact bool,
+) ([]any, [][]any, error) {
+	var matches []map[string]any
+	err := store.DB.NewSelect().TableExpr("module_tags AS mod").
+		ColumnExpr("mod.id as id").
+		ColumnExpr("tag_id as module").
+		ColumnExpr("man.manifest_id as manifest").
+		ColumnExpr("man.label as label").
+		Join("LEFT JOIN manifests as man ON man.id = mod.manifest_id").
+		Scan(store.Ctx, &matches)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	lookup := make(map[int64]map[string]any)
+	for _, match := range matches {
+		lookup[match["id"].(int64)] = match
+	}
+
+	keyTriples, err := store.GetKeyTriples(env, label, exact)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting key triples: %w", err)
+	}
+
+	valueTriples, err := store.GetValueTriples(env, label, exact)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting value triples: %w", err)
+	}
+
+	columns := []any{"id", "label", "manifest", "module", "type", "environment"}
+	rows := make([][]any, 0, len(valueTriples)+len(keyTriples))
+
+	for _, kt := range keyTriples {
+		module, ok := lookup[kt.ModuleID]
+		if !ok {
+			return nil, nil, fmt.Errorf("orphan key triple: %d", kt.ID)
+		}
+
+		envText, err := RenderEnviroment(kt.Environment)
+		if err != nil {
+			return nil, nil, fmt.Errorf("environment for key triple %d: %w", kt.ID, err)
+		}
+
+		rows = append(rows, []any{
+			kt.ID,
+			module["label"],
+			module["manifest"],
+			module["module"],
+			fmt.Sprintf("%s key", kt.Type),
+			envText,
+		})
+	}
+
+	for _, vt := range valueTriples {
+		module, ok := lookup[vt.ModuleID]
+		if !ok {
+			return nil, nil, fmt.Errorf("orphan value triple: %d", vt.ID)
+		}
+
+		envText, err := RenderEnviroment(vt.Environment)
+		if err != nil {
+			return nil, nil, fmt.Errorf("environment for value triple %d: %w", vt.ID, err)
+		}
+
+		rows = append(rows, []any{
+			vt.ID,
+			module["label"],
+			module["manifest"],
+			module["module"],
+			fmt.Sprintf("%s value", vt.Type),
+			envText,
+		})
+	}
+
+	return columns, rows, nil
+}
+
 func init() {
+	AddEnviromentFlags(listCmd)
+	listCmd.Flags().StringP("label", "l", "",
+		"Label that will be applied to the manifest in the store.")
+
+	listCmd.Flags().BoolP("exact", "e", false,
+		"Match environments exactly, including null fields. The default is to assume that "+
+			"null fields (i.e. fields not explicitly specified) can match any value.")
+
 	rootCmd.AddCommand(listCmd)
 }
