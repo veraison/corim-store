@@ -3,10 +3,12 @@ package model
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 	"github.com/veraison/corim/comid"
 )
@@ -296,6 +298,82 @@ func (o *Environment) DeleteIfOrphaned(ctx context.Context, db bun.IDB) error {
 
 	_, err := db.NewDelete().Model(o).WherePK().Exec(ctx)
 	return err
+}
+
+func (o Environment) RenderParts() ([][2]string, error) {
+	if o.IsEmpty() {
+		return nil, nil
+	}
+
+	if err := o.Validate(); err != nil {
+		return nil, err
+	}
+
+	var ret [][2]string
+
+	if o.Vendor != nil && *o.Vendor != "" {
+		ret = append(ret, [2]string{"vendor", *o.Vendor})
+	}
+
+	if o.Model != nil && *o.Model != "" {
+		ret = append(ret, [2]string{"model", *o.Model})
+	}
+
+	if o.ClassBytes != nil {
+		var val string
+		switch *o.ClassType {
+		case comid.OIDType:
+			val = comid.OID(*o.ClassBytes).String()
+		case comid.UUIDType:
+			u, err := uuid.ParseBytes(*o.ClassBytes)
+			if err != nil {
+				return nil, fmt.Errorf("class: %w", err)
+			}
+			val = u.String()
+		default:
+			val = hex.EncodeToString(*o.ClassBytes)
+		}
+
+		ret = append(ret, [2]string{"class", val})
+	}
+
+	if o.InstanceBytes != nil {
+		var val string
+		switch *o.InstanceType {
+		case comid.OIDType:
+			val = comid.OID(*o.InstanceBytes).String()
+		case comid.UUIDType:
+			u, err := uuid.ParseBytes(*o.InstanceBytes)
+			if err != nil {
+				return nil, fmt.Errorf("class: %w", err)
+			}
+			val = u.String()
+		case comid.UEIDType:
+			val = comid.UEID(*o.InstanceBytes).String()
+		default:
+			val = hex.EncodeToString(*o.InstanceBytes)
+		}
+
+		ret = append(ret, [2]string{"instance", val})
+	}
+
+	if o.GroupBytes != nil {
+		var val string
+		switch *o.GroupType {
+		case comid.OIDType:
+			val = comid.OID(*o.GroupBytes).String()
+		default:
+			val = hex.EncodeToString(*o.GroupBytes)
+		}
+
+		ret = append(ret, [2]string{"group", val})
+	}
+
+	if o.Index != nil {
+		ret = append(ret, [2]string{"index", fmt.Sprintf("%d", *o.Index)})
+	}
+
+	return ret, nil
 }
 
 func (o *Environment) getOwnerIDs(ctx context.Context, db bun.IDB, ownerTable string) ([]int64, error) {

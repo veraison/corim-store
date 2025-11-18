@@ -394,20 +394,23 @@ func getTriples[T triple](
 	label string,
 	exact bool,
 ) ([]T, error) { // nolint:dupl
-	envIDs, err := store.FindEnvironmentIDs(env, exact)
-	if err != nil {
-		return nil, err
-	}
-
 	var ret []T
 	query := store.DB.NewSelect().Model(&ret)
-	query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-		for _, envID := range envIDs {
-			q.WhereOr("environment_id = ?", envID)
+
+	if env != nil && !env.IsEmpty() {
+		envIDs, err := store.FindEnvironmentIDs(env, exact)
+		if err != nil {
+			return nil, err
 		}
 
-		return q
-	})
+		query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			for _, envID := range envIDs {
+				q.WhereOr("environment_id = ?", envID)
+			}
+
+			return q
+		})
+	}
 
 	if label != "" {
 		modIDs, err := store.FindModuleTagIDsForLabel(label)
@@ -428,7 +431,7 @@ func getTriples[T triple](
 
 	if err := query.Scan(store.Ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("orphaned evironment(s)?: %v", envIDs)
+			return nil, fmt.Errorf("no triples matched")
 		}
 
 		return nil, err
