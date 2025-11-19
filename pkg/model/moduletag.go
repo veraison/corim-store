@@ -194,6 +194,16 @@ func (o *ModuleTag) ToCoRIM() (*comid.Comid, error) {
 	return ret, nil
 }
 
+func (o *ModuleTag) SetActive(value bool) {
+	for _, kt := range o.KeyTriples {
+		kt.IsActive = value
+	}
+
+	for _, vt := range o.ValueTriples {
+		vt.IsActive = value
+	}
+}
+
 func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 	if err := o.Validate(); err != nil {
 		return err

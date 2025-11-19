@@ -69,7 +69,10 @@ type ValueTriple struct {
 
 	Type         ValueTripleType
 	Measurements []*Measurement `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:value_triple"`
-	ModuleID     int64          `bun:",nullzero"`
+
+	IsActive bool
+
+	ModuleID int64 `bun:",nullzero"`
 }
 
 func NewValueTripleFromCoRIM(origin *comid.ValueTriple) (*ValueTriple, error) {

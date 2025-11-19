@@ -244,7 +244,7 @@ func listTriples(
 		return nil, nil, fmt.Errorf("getting value triples: %w", err)
 	}
 
-	columns := []any{"id", "label", "manifest", "module", "type", "environment"}
+	columns := []any{"id", "active", "label", "manifest", "module", "type", "environment"}
 	rows := make([][]any, 0, len(valueTriples)+len(keyTriples))
 
 	for _, kt := range keyTriples {
@@ -260,6 +260,7 @@ func listTriples(
 
 		rows = append(rows, []any{
 			kt.ID,
+			kt.IsActive,
 			module["label"],
 			module["manifest"],
 			module["module"],
@@ -281,6 +282,7 @@ func listTriples(
 
 		rows = append(rows, []any{
 			vt.ID,
+			vt.IsActive,
 			module["label"],
 			module["manifest"],
 			module["module"],

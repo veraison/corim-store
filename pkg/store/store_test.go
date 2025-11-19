@@ -26,7 +26,7 @@ func TestStore_roundtrip(t *testing.T) {
 		bytes, err := os.ReadFile(path)
 		require.NoError(t, err)
 
-		err = store.AddBytes(bytes, "cca")
+		err = store.AddBytes(bytes, "cca", false)
 		require.NoError(t, err)
 	}
 

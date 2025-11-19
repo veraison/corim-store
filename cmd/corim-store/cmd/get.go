@@ -46,6 +46,11 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	activeOnly, err := cmd.Flags().GetBool("active")
+	if err != nil {
+		return err
+	}
+
 	store, err := store.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
@@ -55,7 +60,15 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 	var result comid.Triples
 
 	if selector.Endorsements || selector.ReferenceValues {
-		found, err := store.GetValueTriples(env, label, exact)
+		var found []*model.ValueTriple
+		var err error
+
+		if activeOnly {
+			found, err = store.GetActiveValueTriples(env, label, exact)
+		} else {
+			found, err = store.GetValueTriples(env, label, exact)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -72,7 +85,15 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	if selector.TrustAnchors {
-		found, err := store.GetKeyTriples(env, label, exact)
+		var found []*model.KeyTriple
+		var err error
+
+		if activeOnly {
+			found, err = store.GetActiveKeyTriples(env, label, exact)
+		} else {
+			found, err = store.GetKeyTriples(env, label, exact)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -140,6 +161,7 @@ func init() {
 	getCmd.Flags().BoolP("exact", "e", false,
 		"Match environments exactly, including null fields. The default is to assume that "+
 			"null fields (i.e. fields not explicitly specified) can match any value.")
+	getCmd.Flags().BoolP("active", "a", false, "Only look up active triples.")
 
 	rootCmd.AddCommand(getCmd)
 }

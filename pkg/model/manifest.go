@@ -210,6 +210,12 @@ func (o *Manifest) ToCoRIM() (*corim.UnsignedCorim, error) {
 	return &ret, nil
 }
 
+func (o *Manifest) SetActive(value bool) {
+	for _, mt := range o.ModuleTags {
+		mt.SetActive(value)
+	}
+}
+
 func (o *Manifest) Insert(ctx context.Context, db bun.IDB) error {
 	if err := o.Validate(); err != nil {
 		return err

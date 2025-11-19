@@ -71,7 +71,10 @@ type KeyTriple struct {
 	KeyList []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:key_triple"`
 
 	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:key_triple_auth"`
-	ModuleID     int64        `bun:",nullzero"`
+
+	IsActive bool
+
+	ModuleID int64 `bun:",nullzero"`
 }
 
 func NewKeyTripleFromCoRIM(origin *comid.KeyTriple) (*KeyTriple, error) {

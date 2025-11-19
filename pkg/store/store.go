@@ -84,8 +84,9 @@ func (o *Store) Migrate() error {
 // Signature validation of signed CoRIMs is not supported. If insecure
 // transactions are allowed by the Store's configuration, signed corims will
 // be added without validating their signatures. Otherwise, an error will be
-// returned.
-func (o *Store) AddBytes(buf []byte, label string) error {
+// returned. If activate is true, the contained triples will be activated
+// before they are added.
+func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 	if len(buf) < 3 {
 		return fmt.Errorf("input too short")
 	}
@@ -105,7 +106,7 @@ func (o *Store) AddBytes(buf []byte, label string) error {
 			return err
 		}
 
-		return o.AddCoRIM(&signed.UnsignedCorim, digest, label)
+		return o.AddCoRIM(&signed.UnsignedCorim, digest, label, activate)
 	} else if slices.Equal(buf[:3], []byte{0xd9, 0x01, 0xf5}) {
 		// tag 501 -> unsigned corim
 		var unsigned corim.UnsignedCorim
@@ -113,7 +114,7 @@ func (o *Store) AddBytes(buf []byte, label string) error {
 			return err
 		}
 
-		return o.AddCoRIM(&unsigned, digest, label)
+		return o.AddCoRIM(&unsigned, digest, label, activate)
 	} else {
 		return fmt.Errorf("unrecognized input format")
 	}
@@ -121,8 +122,9 @@ func (o *Store) AddBytes(buf []byte, label string) error {
 
 // AddCoRIM adds the provided CoRIM to the store. The digest, if not nil,
 // should be the digest of the CBOR token the provided CoRIM was decoded
-// from.
-func (o *Store) AddCoRIM(c *corim.UnsignedCorim, digest []byte, label string) error {
+// from. If activate is true, the contained triples will be activated
+// before they are added.
+func (o *Store) AddCoRIM(c *corim.UnsignedCorim, digest []byte, label string, activate bool) error {
 	m, err := model.NewManifestFromCoRIM(c)
 	if err != nil {
 		return err
@@ -130,6 +132,10 @@ func (o *Store) AddCoRIM(c *corim.UnsignedCorim, digest []byte, label string) er
 
 	m.Digest = digest
 	m.Label = label
+
+	if activate {
+		m.SetActive(true)
+	}
 
 	return o.AddManifest(m)
 }
@@ -237,6 +243,18 @@ func (o *Store) DeleteManifest(manifestID string, label string) error {
 	return manifest.Delete(o.Ctx, o.DB)
 }
 
+// GetActiveValueTriples returns a slice of ValueTriple's whose environment
+// matches the one provided. If exact is true, any unset fields in the provided
+// environment must be NULL in the database; otherwise, unset fields will
+// match any value. Only active triples are returned.
+func (o *Store) GetActiveValueTriples(
+	env *model.Environment,
+	label string,
+	exact bool,
+) ([]*model.ValueTriple, error) {
+	return getTriples[*model.ValueTriple](o, env, label, exact, true)
+}
+
 // GetValueTriples returns a slice of ValueTriple's whose environment matches
 // the one provided. If exact is true, any unset fields in the provided
 // environment must be NULL in the database; otherwise, unset fields will
@@ -246,7 +264,19 @@ func (o *Store) GetValueTriples(
 	label string,
 	exact bool,
 ) ([]*model.ValueTriple, error) {
-	return getTriples[*model.ValueTriple](o, env, label, exact)
+	return getTriples[*model.ValueTriple](o, env, label, exact, false)
+}
+
+// GetActiveKeyTriples returns a slice of KeyTriple's whose environment matches
+// the one provided. If exact is true, any unset fields in the provided
+// environment must be NULL in the database; otherwise, unset fields will
+// match any value. Only active triples are returned.
+func (o *Store) GetActiveKeyTriples(
+	env *model.Environment,
+	label string,
+	exact bool,
+) ([]*model.KeyTriple, error) {
+	return getTriples[*model.KeyTriple](o, env, label, exact, true)
 }
 
 // GetKeyTriples returns a slice of KeyTriple's whose environment matches
@@ -258,7 +288,7 @@ func (o *Store) GetKeyTriples(
 	label string,
 	exact bool,
 ) ([]*model.KeyTriple, error) {
-	return getTriples[*model.KeyTriple](o, env, label, exact)
+	return getTriples[*model.KeyTriple](o, env, label, exact, false)
 }
 
 func (o *Store) FindEnvironmentIDs(env *model.Environment, exact bool) ([]int64, error) {
@@ -393,9 +423,14 @@ func getTriples[T triple](
 	env *model.Environment,
 	label string,
 	exact bool,
+	activeOnly bool,
 ) ([]T, error) { // nolint:dupl
 	var ret []T
 	query := store.DB.NewSelect().Model(&ret)
+
+	if activeOnly {
+		query.Where("is_active = true")
+	}
 
 	if env != nil && !env.IsEmpty() {
 		envIDs, err := store.FindEnvironmentIDs(env, exact)
