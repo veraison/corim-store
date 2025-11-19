@@ -144,7 +144,10 @@ type keyTriple_v1 struct {
 	KeyList []*cryptoKey_v1 `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:key_triple"`
 
 	AuthorizedBy []*cryptoKey_v1 `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:key_triple_auth"`
-	ModuleID     int64           `bun:",nullzero"`
+
+	IsActive bool
+
+	ModuleID int64 `bun:",nullzero"`
 }
 
 type valueTriple_v1 struct {
@@ -157,7 +160,10 @@ type valueTriple_v1 struct {
 
 	Type         string
 	Measurements []*measurement_v1 `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:value_triple"`
-	ModuleID     int64             `bun:",nullzero"`
+
+	IsActive bool
+
+	ModuleID int64 `bun:",nullzero"`
 }
 
 type linkedTag_v1 struct {

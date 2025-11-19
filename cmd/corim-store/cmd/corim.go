@@ -56,6 +56,11 @@ func runAddCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	activate, err := cmd.Flags().GetBool("activate")
+	if err != nil {
+		return err
+	}
+
 	store, err := store.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
@@ -68,7 +73,7 @@ func runAddCommand(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error reading %s: %w", path, err)
 		}
 
-		if err := store.AddBytes(bytes, label); err != nil {
+		if err := store.AddBytes(bytes, label, activate); err != nil {
 			return fmt.Errorf("error adding %s: %w", path, err)
 		}
 
@@ -190,6 +195,8 @@ func runDeleteCommand(cmd *cobra.Command, args []string) error {
 func init() {
 	corimCmd.PersistentFlags().StringP("label", "l", "",
 		"Label that will be applied to the manifest in the store.")
+
+	addCmd.Flags().BoolP("activate", "a", false, "Activate added triples.")
 
 	deleteCmd.Flags().BoolP("corim", "C", false,
 		"force interpretation the positional argument as a path to CoRIM")
