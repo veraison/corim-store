@@ -1,0 +1,2 @@
+dbms: mariadb
+dsn: store_user:L3tM31n@tcp(localhost:33306)/corim_store?parseTime=true

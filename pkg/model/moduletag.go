@@ -13,7 +13,7 @@ import (
 )
 
 type ModuleTag struct {
-	bun.BaseModel `bun:"table:module_tags,alias:mod"`
+	bun.BaseModel `bun:"table:module_tags,alias:mt"`
 
 	ID int64 `bun:",pk,autoincrement"`
 
@@ -280,7 +280,7 @@ func (o *ModuleTag) Select(ctx context.Context, db bun.IDB) error {
 		Relation("KeyTriples").
 		Relation("Extensions").
 		Relation("TriplesExtensions").
-		Where("mod.id = ?", o.ID).
+		Where("mt.id = ?", o.ID).
 		Scan(ctx)
 
 	if err != nil {
