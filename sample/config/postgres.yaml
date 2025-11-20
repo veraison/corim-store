@@ -1,0 +1,2 @@
+dbms: postgres
+dsn: postgres://store_user:L3tM31n@localhost:55432/corim_store?sslmode=disable

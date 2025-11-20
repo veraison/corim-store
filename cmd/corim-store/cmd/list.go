@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -125,7 +126,7 @@ func listManifests(store *store.Store) ([]any, [][]any, error) {
 	for _, match := range matches {
 		retRow := make([]any, 0, len(retCols)+1)
 		for _, col := range retCols {
-			retRow = append(retRow, match[col.(string)])
+			retRow = append(retRow, unwrapNullableTypes(match[col.(string)]))
 		}
 
 		ret = append(ret, retRow)
@@ -139,14 +140,14 @@ func listModuleTags(store *store.Store) ([]any, [][]any, error) {
 	retCols := make([]any, 0, len(columns)+1)
 
 	var matches []map[string]any
-	err := store.DB.NewSelect().TableExpr("module_tags AS mod").
+	err := store.DB.NewSelect().TableExpr("module_tags AS mt").
 		ColumnExpr("tag_id").
 		ColumnExpr("language").
 		ColumnExpr(fmt.Sprintf("%s AS entities", store.StringAggregatorExpr("ent.name"))).
 		ColumnExpr("man.manifest_id as manifest").
 		ColumnExpr("man.label as label").
-		Join("LEFT JOIN entities as ent ON ent.owner_id = mod.id AND ent.owner_type = 'module_tag'").
-		Join("LEFT JOIN manifests as man ON man.id = mod.manifest_id").
+		Join("LEFT JOIN entities as ent ON ent.owner_id = mt.id AND ent.owner_type = 'module_tag'").
+		Join("LEFT JOIN manifests as man ON man.id = mt.manifest_id").
 		GroupExpr(strings.Join(columns, ", ")).
 		Scan(store.Ctx, &matches)
 
@@ -163,7 +164,7 @@ func listModuleTags(store *store.Store) ([]any, [][]any, error) {
 	for _, match := range matches {
 		retRow := make([]any, 0, len(retCols)+1)
 		for _, col := range retCols {
-			retRow = append(retRow, match[col.(string)])
+			retRow = append(retRow, unwrapNullableTypes(match[col.(string)]))
 		}
 
 		ret = append(ret, retRow)
@@ -200,9 +201,9 @@ func listEntities(store *store.Store) ([]any, [][]any, error) {
 	for _, match := range matches {
 		retRow := make([]any, 0, len(retCols)+1)
 		for _, col := range columns {
-			retRow = append(retRow, match[col])
+			retRow = append(retRow, unwrapNullableTypes(match[col]))
 		}
-		retRow = append(retRow, match["roles"])
+		retRow = append(retRow, unwrapNullableTypes(match["roles"]))
 
 		ret = append(ret, retRow)
 	}
@@ -217,12 +218,12 @@ func listTriples(
 	exact bool,
 ) ([]any, [][]any, error) {
 	var matches []map[string]any
-	err := store.DB.NewSelect().TableExpr("module_tags AS mod").
-		ColumnExpr("mod.id as id").
+	err := store.DB.NewSelect().TableExpr("module_tags AS mt").
+		ColumnExpr("mt.id as id").
 		ColumnExpr("tag_id as module").
 		ColumnExpr("man.manifest_id as manifest").
 		ColumnExpr("man.label as label").
-		Join("LEFT JOIN manifests as man ON man.id = mod.manifest_id").
+		Join("LEFT JOIN manifests as man ON man.id = mt.manifest_id").
 		Scan(store.Ctx, &matches)
 
 	if err != nil {
@@ -261,9 +262,9 @@ func listTriples(
 		rows = append(rows, []any{
 			kt.ID,
 			kt.IsActive,
-			module["label"],
-			module["manifest"],
-			module["module"],
+			unwrapNullableTypes(module["label"]),
+			unwrapNullableTypes(module["manifest"]),
+			unwrapNullableTypes(module["module"]),
 			fmt.Sprintf("%s key", kt.Type),
 			envText,
 		})
@@ -283,15 +284,58 @@ func listTriples(
 		rows = append(rows, []any{
 			vt.ID,
 			vt.IsActive,
-			module["label"],
-			module["manifest"],
-			module["module"],
+			unwrapNullableTypes(module["label"]),
+			unwrapNullableTypes(module["manifest"]),
+			unwrapNullableTypes(module["module"]),
 			fmt.Sprintf("%s value", vt.Type),
 			envText,
 		})
 	}
 
 	return columns, rows, nil
+}
+
+func unwrapNullableTypes(val any) any {
+	switch t := val.(type) {
+	case sql.NullString:
+		if t.Valid {
+			return t.String
+		} else {
+			return nil
+		}
+	case sql.NullInt64:
+		if t.Valid {
+			return t.Int64
+		} else {
+			return nil
+		}
+	case sql.NullInt32:
+		if t.Valid {
+			return t.Int32
+		} else {
+			return nil
+		}
+	case sql.NullInt16:
+		if t.Valid {
+			return t.Int16
+		} else {
+			return nil
+		}
+	case sql.NullByte:
+		if t.Valid {
+			return t.Byte
+		} else {
+			return nil
+		}
+	case sql.NullBool:
+		if t.Valid {
+			return t.Bool
+		} else {
+			return nil
+		}
+	default:
+		return t
+	}
 }
 
 func init() {

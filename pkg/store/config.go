@@ -52,7 +52,7 @@ func (o *Config) WithOptions(options ...ConfigOption) *Config {
 
 func (o *Config) Validate() error {
 	if !slices.Contains([]string{
-		"sqlite", "sqlite3",
+		"sqlite", "sqlite3", "mysql", "mariadb", "postgres", "pq", "pgx",
 	}, o.DBMS) {
 		return fmt.Errorf("invalid DBMS: %s", o.DBMS)
 	}
