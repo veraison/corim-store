@@ -25,6 +25,12 @@ build:
 test:
 	$(GO) test -tags=test ./... $(TEST_ARGS)
 
+.PHONY: integ-test
+integ-test:
+	@scripts/integration-tests.sh setup
+	@scripts/integration-tests.sh run
+	@scripts/integration-tests.sh teardown
+
 .PHONY: fmt format gofmt
 fmt format gofmt: */*/*.go */*/*/*.go
 	$(GOFMT) -w */*/*.go */*/*/*.go
@@ -60,15 +66,18 @@ Targets:
         Run unit tests. Use VERBOSE=1 for SQL traces. Set TEST_DB_FILE to
         specify the path for the sqlite DB file to be used for tests (by default
         in-memory DB is used).
+    integ-test:
+        Run integration tests. These rely on a Docker container running database
+        servers.
     lint:
         Run golangci-lint.
     fmt, format, gofmt:
         Run gofmt -w on Go sourcefiles, fixing any formatting issues.
     cover, coverage:
         Report overall test coverage percentage and generate coverage.out. You
-	can specify a space-separated list of packages for which coverage will
-	not be checked by setting IGNORE_COVERAGE. You can specify alternative
-	threshold by setting COVERAGE_THRESHOLD.
+        can specify a space-separated list of packages for which coverage will
+        not be checked by setting IGNORE_COVERAGE. You can specify alternative
+        threshold by setting COVERAGE_THRESHOLD.
     cover-report, coverage-report, report:
         Open a detailed HTML coverage report in default browser.
     presubmit:
