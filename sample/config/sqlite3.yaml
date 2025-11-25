@@ -1,0 +1,2 @@
+dbms: sqlite
+dsn: file:/tmp/test-corim-store-db.sqlite?cache=shared
