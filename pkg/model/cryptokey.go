@@ -156,8 +156,7 @@ func (o *CryptoKey) Select(ctx context.Context, db bun.IDB) error {
 		return errors.New("ID not set")
 	}
 
-	_, err := db.NewSelect().Model(o).Where("ck.id = ?", o.ID).Exec(ctx)
-	return err
+	return db.NewSelect().Model(o).Where("ck.id = ?", o.ID).Scan(ctx)
 }
 
 func (o *CryptoKey) Delete(ctx context.Context, db bun.IDB) error {

@@ -35,10 +35,10 @@ func CoRIMEntitiesToCoRIM(origin []*Entity) (*corim.Entities, error) {
 	}
 
 	ret := corim.NewEntities()
-	for _, origEntity := range origin {
+	for i, origEntity := range origin {
 		entity, err := origEntity.ToCoRIMCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("problem with entity %+v: %w", origEntity, err)
+			return nil, fmt.Errorf("entity at index %d: %w", i, err)
 		}
 
 		ret.Add(entity)
@@ -248,6 +248,15 @@ func (o *Entity) Insert(ctx context.Context, db bun.IDB) error {
 		roleEntry.EntityID = o.ID
 		if err := roleEntry.Insert(ctx, db); err != nil {
 			return fmt.Errorf("error inserting role at index %d: %w", i, err)
+		}
+	}
+
+	for _, ext := range o.Extensions {
+		ext.OwnerID = o.ID
+		ext.OwnerType = "entity"
+
+		if err := ext.Insert(ctx, db); err != nil {
+			return fmt.Errorf("error inserting extension %+v: %w", ext, err)
 		}
 	}
 

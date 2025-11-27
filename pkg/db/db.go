@@ -34,7 +34,7 @@ func Open(cfg *Config) (*bun.DB, error) {
 	case "sqlite", "sqlite3":
 		sqldb, err = sql.Open(sqliteshim.ShimName, cfg.DSN)
 		dialect = sqlitedialect.New()
-	case "postgres", "pq", "pgx":
+	case "postgres", "pq", "pgx", "pg":
 		sqldb, err = sql.Open("pgx", cfg.DSN)
 		dialect = pgdialect.New()
 	default:

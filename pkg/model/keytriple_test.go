@@ -15,7 +15,7 @@ func TestKeyTriple_round_trip(t *testing.T) {
 	db := test.NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	test_cases := []struct {
+	testCases := []struct {
 		title string
 		kt    comid.KeyTriple
 	}{
@@ -32,7 +32,7 @@ func TestKeyTriple_round_trip(t *testing.T) {
 		},
 	}
 
-	for _, tc := range test_cases {
+	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
 			kt, err := NewKeyTripleFromCoRIM(&tc.kt)
 			assert.NoError(t, err)
@@ -59,7 +59,7 @@ func TestKeyTriple_round_trip(t *testing.T) {
 func TestKeyTriple_Validate(t *testing.T) {
 	testType := comid.BytesType
 	testBytes := comid.MustHexDecode(t, "deadbeef")
-	test_cases := []struct {
+	testCases := []struct {
 		title string
 		kt    KeyTriple
 		err   string
@@ -112,7 +112,7 @@ func TestKeyTriple_Validate(t *testing.T) {
 		},
 	}
 
-	for _, tc := range test_cases {
+	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
 			err := tc.kt.Validate()
 			if tc.err == "" {
@@ -122,4 +122,66 @@ func TestKeyTriple_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestKeyTriple_CRUD(t *testing.T) {
+	model := "foo"
+	kt := KeyTriple{
+		Environment: &Environment{
+			Model: &model,
+		},
+		Type: AttestKeyTriple,
+		KeyList: []*CryptoKey{
+			{
+				KeyType:  comid.PKIXBase64KeyType,
+				KeyBytes: []byte{0x01, 0x02, 0x03, 0x04},
+			},
+		},
+		AuthorizedBy: []*CryptoKey{
+			{
+				KeyType:  comid.PKIXBase64KeyType,
+				KeyBytes: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+		},
+	}
+
+	db := test.NewTestDB(t)
+
+	err := kt.Insert(context.Background(), db)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), kt.ID)
+	assert.Equal(t, int64(1), kt.EnvironmentID)
+	assert.Equal(t, int64(1), kt.KeyList[0].OwnerID)
+	assert.Equal(t, "key_triple", kt.KeyList[0].OwnerType)
+	assert.Equal(t, int64(1), kt.AuthorizedBy[0].OwnerID)
+	assert.Equal(t, "key_triple_auth", kt.AuthorizedBy[0].OwnerType)
+
+	err = kt.Delete(context.Background(), db)
+	assert.NoError(t, err)
+}
+
+func TestKeyTriple_Select(t *testing.T) {
+	var kt KeyTriple
+	db := test.NewTestDB(t)
+
+	err := kt.Select(context.Background(), db)
+	assert.ErrorContains(t, err, "ID not set")
+
+	kt.ID = 1
+	err = kt.Select(context.Background(), db)
+	assert.ErrorContains(t, err, "no rows in result")
+}
+
+func TestKeyTriple_Delete(t *testing.T) {
+	var kt KeyTriple
+	db := test.NewTestDB(t)
+
+	err := kt.Delete(context.Background(), db)
+	assert.ErrorContains(t, err, "ID not set")
+}
+
+func TestKeyTriple_accessors(t *testing.T) {
+	var kt KeyTriple
+	assert.Equal(t, "key", kt.TripleType())
+	assert.Equal(t, int64(0), kt.DatabaseID())
 }

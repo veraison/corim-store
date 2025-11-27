@@ -274,8 +274,7 @@ func (o *Environment) Select(ctx context.Context, db bun.IDB) error {
 		return errors.New("ID not set")
 	}
 
-	_, err := db.NewSelect().Model(o).Where("env.id = ?", o.ID).Exec(ctx)
-	return err
+	return db.NewSelect().Model(o).Where("env.id = ?", o.ID).Scan(ctx)
 }
 
 func (o *Environment) DeleteIfOrphaned(ctx context.Context, db bun.IDB) error {
@@ -367,6 +366,10 @@ func (o Environment) RenderParts() ([][2]string, error) {
 		}
 
 		ret = append(ret, [2]string{"group", val})
+	}
+
+	if o.Layer != nil {
+		ret = append(ret, [2]string{"layer", fmt.Sprintf("%d", *o.Layer)})
 	}
 
 	if o.Index != nil {

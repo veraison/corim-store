@@ -67,14 +67,9 @@ func NewLinkedTagFromCoRIM(origin *comid.LinkedTag) (*LinkedTag, error) {
 
 func SelectLinkedTag(ctx context.Context, db bun.IDB, id int64) (*LinkedTag, error) {
 	var ret LinkedTag
+	ret.ID = id
 
-	err := db.NewSelect().
-		Model(&ret).
-		Relation("Module").
-		Where("lnk.id = ?", id).
-		Scan(ctx)
-
-	if err != nil {
+	if err := ret.Select(ctx, db); err != nil {
 		return nil, err
 	}
 
@@ -150,6 +145,14 @@ func (o *LinkedTag) ToCoRIM() (*comid.LinkedTag, error) {
 	}
 
 	return &ret, nil
+}
+
+func (o *LinkedTag) Select(ctx context.Context, db bun.IDB) error {
+	if o.ID == 0 {
+		return errors.New("ID not set")
+	}
+
+	return db.NewSelect().Model(o).Where("lnk.id = ?", o.ID).Scan(ctx)
 }
 
 func (o *LinkedTag) Insert(ctx context.Context, db bun.IDB) error {

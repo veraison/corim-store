@@ -216,7 +216,13 @@ func (o *ValueTriple) Delete(ctx context.Context, db bun.IDB) error {
 		return err
 	}
 
-	return o.Environment.DeleteIfOrphaned(ctx, db)
+	if o.Environment != nil {
+		if err := o.Environment.DeleteIfOrphaned(ctx, db); err != nil {
+			return fmt.Errorf("environment: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (o *ValueTriple) TripleType() string {

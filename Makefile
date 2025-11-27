@@ -49,8 +49,7 @@ cover-report coverage-report report: coverage.out
 
 .PHONY: presubmit
 presubmit:
-	# TODO: increase coverage
-	@$(MAKE) -s test && $(MAKE) -s lint && COVERAGE_THRESHOLD=30% $(MAKE) -s coverage && $(MAKE) -s format
+	@$(MAKE) -s test && $(MAKE) -s lint && $(MAKE) -s coverage && $(MAKE) -s format
 	@if ! $(GIT) diff-index --quiet HEAD --; then \
 		echo -e "\033[1;31mUNCOMMITED CHANGES!\033[0m"; \
 		exit 2; \

@@ -32,6 +32,10 @@ type Store struct {
 // Open a Store configured according to provided Config that will use the
 // provided Context for its transactions.
 func Open(ctx context.Context, cfg *Config) (*Store, error) {
+	if cfg == nil {
+		return nil, errors.New("nil config")
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -339,7 +343,10 @@ func (o *Store) FindModuleTagIDsForLabel(label string) ([]int64, error) {
 // comma-separated list.
 func (o *Store) StringAggregatorExpr(columnName string) string {
 	dialect := o.DB.Dialect().Name().String()
+	return StringAggregatorExprForDialect(dialect, columnName)
+}
 
+func StringAggregatorExprForDialect(dialect, columnName string) string {
 	switch dialect {
 	case "pg":
 		return fmt.Sprintf("STRING_AGG(%s, ', ')", columnName)
@@ -357,11 +364,14 @@ func (o *Store) StringAggregatorExpr(columnName string) string {
 // ConcatExpr returns dialect-specific expression concatenated provided
 // strings.
 func (o *Store) ConcatExpr(tokens ...string) string {
+	dialect := o.DB.Dialect().Name().String()
+	return ConcatExprForDialect(dialect, tokens...)
+}
+
+func ConcatExprForDialect(dialect string, tokens ...string) string {
 	if len(tokens) == 0 {
 		return "''"
 	}
-
-	dialect := o.DB.Dialect().Name().String()
 
 	switch dialect {
 	case "mysql":
@@ -377,6 +387,10 @@ func (o *Store) ConcatExpr(tokens ...string) string {
 
 func (o *Store) HexExpr(columnName string) string {
 	dialect := o.DB.Dialect().Name().String()
+	return HexExprForDialect(dialect, columnName)
+}
+
+func HexExprForDialect(dialect, columnName string) string {
 
 	switch dialect {
 	case "mysql", "sqlite":
