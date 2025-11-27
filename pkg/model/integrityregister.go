@@ -98,6 +98,20 @@ type IntegrityRegister struct {
 	MeasurementID int64 `bun:",nullzero"`
 }
 
+// StringIndex return the index of this IntegrityRegister as a string. If
+// IndexText is set, it returns the value it points at, If IndexUint is set,
+// the value it points to formatted as a string is returned. Otherwise, the
+// string "nil" is returned.
+func (o *IntegrityRegister) StringIndex() string {
+	if o.IndexText != nil { // nolint: gocritic
+		return *o.IndexText
+	} else if o.IndexUint != nil {
+		return fmt.Sprint(*o.IndexUint)
+	} else {
+		return "nil"
+	}
+}
+
 func (o *IntegrityRegister) Insert(ctx context.Context, db bun.IDB) error {
 	if _, err := db.NewInsert().Model(o).Exec(ctx); err != nil {
 		return err
@@ -115,11 +129,15 @@ func (o *IntegrityRegister) Insert(ctx context.Context, db bun.IDB) error {
 	return nil
 }
 
-func (o *IntegrityRegister) Select(ctx context.Context, db bun.IDB, id int64) error {
+func (o *IntegrityRegister) Select(ctx context.Context, db bun.IDB) error {
+	if o.ID == 0 {
+		return errors.New("ID not set")
+	}
+
 	return db.NewSelect().
 		Model(o).
 		Relation("Digests").
-		Where("id = ?", id).
+		Where("id = ?", o.ID).
 		Scan(ctx)
 }
 

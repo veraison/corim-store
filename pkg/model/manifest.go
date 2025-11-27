@@ -69,6 +69,10 @@ func SelectManifest(ctx context.Context, db bun.IDB, id int64) (*Manifest, error
 func (o *Manifest) FromCoRIM(origin *corim.UnsignedCorim) error {
 	var err error
 
+	if origin == nil {
+		return errors.New("nil input")
+	}
+
 	o.ManifestID = origin.ID.String()
 
 	// swid.TagID does not expose the underlying type in any way, but we

@@ -193,12 +193,12 @@ func (o *ExtensionValue) Insert(ctx context.Context, db bun.IDB) error {
 	return err
 }
 
-func (o *ExtensionValue) Select(ctx context.Context, db bun.IDB, id int64) error {
+func (o *ExtensionValue) Select(ctx context.Context, db bun.IDB) error {
 	if o.ID == 0 {
 		return errors.New("ID not set")
 	}
 
-	return db.NewSelect().Model(o).Where("id = ?", id).Scan(ctx)
+	return db.NewSelect().Model(o).Where("id = ?", o.ID).Scan(ctx)
 }
 
 func (o *ExtensionValue) Delete(ctx context.Context, db bun.IDB) error {

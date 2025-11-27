@@ -61,7 +61,7 @@ func (o *ModuleTag) FromCoRIM(origin *comid.Comid) error {
 	var err error
 
 	if origin.Triples.CondEndorseSeries != nil && len(origin.Triples.CondEndorseSeries.Values) != 0 {
-		return errors.New("conditional endosement series are not supported") // TODO
+		return errors.New("conditional endorsement series are not supported") // TODO
 	}
 
 	o.Language = origin.Language

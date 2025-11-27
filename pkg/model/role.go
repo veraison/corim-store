@@ -43,8 +43,8 @@ func ParseCoRIMRole(text string) (corim.Role, error) {
 	default:
 		matches := roleRegex.FindStringSubmatch(text)
 		switch len(matches) {
-		case 1:
-			role, err := strconv.Atoi(matches[0])
+		case 2:
+			role, err := strconv.Atoi(matches[1])
 			return corim.Role(role), err
 		default:
 			return corim.Role(0), fmt.Errorf("invalid CoRIM role: %s", text)
@@ -63,8 +63,8 @@ func ParseCoMIDRole(text string) (comid.Role, error) {
 	default:
 		matches := roleRegex.FindStringSubmatch(text)
 		switch len(matches) {
-		case 1:
-			role, err := strconv.Atoi(matches[0])
+		case 2:
+			role, err := strconv.Atoi(matches[1])
 			return comid.Role(role), err
 		default:
 			return comid.Role(0), fmt.Errorf("invalid CoMID role: %s", text)
@@ -83,13 +83,12 @@ type RoleEntry struct {
 }
 
 func MustNewCoRIMRoleEntry(text string) *RoleEntry {
-	if _, err := ParseCoRIMRole(text); err != nil {
+	ret, err := NewCoRIMRoleEntry(text)
+	if err != nil {
 		panic(err)
 	}
 
-	ret := RoleEntry{Role: text}
-
-	return &ret
+	return ret
 }
 
 func NewCoRIMRoleEntry(text string) (*RoleEntry, error) {
@@ -103,13 +102,12 @@ func NewCoRIMRoleEntry(text string) (*RoleEntry, error) {
 }
 
 func MustNewCoMIDRoleEntry(text string) *RoleEntry {
-	if _, err := ParseCoMIDRole(text); err != nil {
+	ret, err := NewCoMIDRoleEntry(text)
+	if err != nil {
 		panic(err)
 	}
 
-	ret := RoleEntry{Role: text}
-
-	return &ret
+	return ret
 }
 
 func NewCoMIDRoleEntry(text string) (*RoleEntry, error) {

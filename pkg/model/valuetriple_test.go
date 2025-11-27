@@ -19,7 +19,7 @@ func TestValueTriple_round_trip(t *testing.T) {
 	testSvn, err := comid.NewTaggedSVN(42)
 	require.NoError(t, err)
 
-	test_cases := []struct {
+	testCases := []struct {
 		title string
 		vt    comid.ValueTriple
 	}{
@@ -39,7 +39,7 @@ func TestValueTriple_round_trip(t *testing.T) {
 		},
 	}
 
-	for _, tc := range test_cases {
+	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
 			vt, err := NewValueTripleFromCoRIM(&tc.vt)
 			assert.NoError(t, err)
@@ -66,7 +66,7 @@ func TestValueTriple_round_trip(t *testing.T) {
 func TestValueTriple_Validate(t *testing.T) {
 	testType := comid.BytesType
 	testBytes := comid.MustHexDecode(t, "deadbeefdeadbeefdeadbeefdeadbeef")
-	test_cases := []struct {
+	testCases := []struct {
 		title string
 		vt    ValueTriple
 		err   string
@@ -117,7 +117,7 @@ func TestValueTriple_Validate(t *testing.T) {
 		},
 	}
 
-	for _, tc := range test_cases {
+	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
 			err := tc.vt.Validate()
 			if tc.err == "" {
@@ -127,4 +127,33 @@ func TestValueTriple_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValueTriple_Delete(t *testing.T) {
+	var vt ValueTriple
+	db := test.NewTestDB(t)
+
+	err := vt.Delete(context.Background(), db)
+	assert.ErrorContains(t, err, "ID not set")
+
+	vt = ValueTriple{
+		ID:           1,
+		Measurements: []*Measurement{{ID: 1}},
+		Environment:  &Environment{ID: 1},
+	}
+	err = vt.Delete(context.Background(), db)
+	assert.NoError(t, err)
+}
+
+func TestValueTriple_TripleType(t *testing.T) {
+	var vt ValueTriple
+	assert.Equal(t, "value", vt.TripleType())
+}
+
+func TestValueTriple_DatabaseID(t *testing.T) {
+	var vt ValueTriple
+	assert.Equal(t, int64(0), vt.DatabaseID())
+
+	vt.ID = 1
+	assert.Equal(t, int64(1), vt.DatabaseID())
 }

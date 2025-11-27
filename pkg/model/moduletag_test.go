@@ -21,7 +21,7 @@ func TestModuleTag_round_trip(t *testing.T) {
 		Name:  comid.MustNewEntityName("foo", "string"),
 		Roles: *comid.NewRoles().Add(comid.RoleCreator),
 	})
-	test_cases := []struct {
+	testCases := []struct {
 		title string
 		mt    comid.Comid
 	}{
@@ -90,7 +90,7 @@ func TestModuleTag_round_trip(t *testing.T) {
 		},
 	}
 
-	for _, tc := range test_cases {
+	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
 			mt, err := NewModuleTagFromCoRIM(&tc.mt)
 			assert.NoError(t, err)
@@ -112,7 +112,7 @@ func TestModuleTag_round_trip(t *testing.T) {
 func TestModuleTag_Validate(t *testing.T) {
 	testType := comid.BytesType
 	testBytes := comid.MustHexDecode(t, "deadbeefdeadbeefdeadbeefdeadbeef")
-	test_cases := []struct {
+	testCases := []struct {
 		title string
 		mt    ModuleTag
 		err   string
@@ -156,7 +156,7 @@ func TestModuleTag_Validate(t *testing.T) {
 		},
 	}
 
-	for _, tc := range test_cases {
+	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
 			err := tc.mt.Validate()
 			if tc.err == "" {
@@ -166,4 +166,95 @@ func TestModuleTag_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModuleTag_ToCoRIM(t *testing.T) {
+	testCases := []struct {
+		title string
+		mt    ModuleTag
+		err   string
+	}{
+		{
+			title: "ok UUID tag ID",
+			mt: ModuleTag{
+				TagIDType: comid.UUIDType,
+				TagID:     comid.TestUUID.String(),
+			},
+		},
+		{
+			title: "nok bad UUID tag ID",
+			mt: ModuleTag{
+				TagIDType: comid.UUIDType,
+				TagID:     "foo",
+			},
+			err: "invalid UUID length",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			_, err := tc.mt.ToCoRIM()
+			if tc.err == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tc.err)
+			}
+		})
+	}
+}
+
+func TestModuleTag_Insert_extensions(t *testing.T) {
+	db := test.NewTestDB(t)
+	testType := comid.BytesType
+	testBytes := comid.MustHexDecode(t, "deadbeefdeadbeefdeadbeefdeadbeef")
+	mt := ModuleTag{
+		TagIDType: StringTagID,
+		TagID:     "foo",
+		KeyTriples: []*KeyTriple{
+			{
+				Type: AttestKeyTriple,
+				Environment: &Environment{
+					ClassType:  &testType,
+					ClassBytes: &testBytes,
+				},
+				KeyList: []*CryptoKey{
+					&CryptoKey{
+						KeyType:  comid.PKIXBase64KeyType,
+						KeyBytes: []byte(comid.TestECPubKey),
+					},
+				},
+			},
+		},
+		Extensions:        []*ExtensionValue{{}},
+		TriplesExtensions: []*ExtensionValue{{}},
+	}
+
+	err := mt.Insert(context.Background(), db)
+	assert.NoError(t, err)
+	assert.Equal(t, mt.Extensions[0].ID, int64(1))
+	assert.Equal(t, mt.TriplesExtensions[0].ID, int64(2))
+}
+
+func TestModuleTag_Select(t *testing.T) {
+	var mt ModuleTag
+	db := test.NewTestDB(t)
+
+	err := mt.Select(context.Background(), db)
+	assert.ErrorContains(t, err, "ID not set")
+
+	mt.ID = 1
+	err = mt.Select(context.Background(), db)
+	assert.ErrorContains(t, err, "no rows in result")
+}
+
+func TestModuleTag_Delete(t *testing.T) {
+	var mt ModuleTag
+	db := test.NewTestDB(t)
+
+	err := mt.Delete(context.Background(), db)
+	assert.ErrorContains(t, err, "ID not set")
+
+	mt.ID = 1
+	err = mt.Delete(context.Background(), db)
+	assert.NoError(t, err)
 }

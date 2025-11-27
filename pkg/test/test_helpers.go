@@ -30,7 +30,7 @@ func NewTestDB(t *testing.T) *bun.DB {
 
 	testDB, err := db.Open(&db.Config{
 		DBMS:     "sqlite",
-		DSN:      fmt.Sprintf("file:%s?cache=shared", testDbFile),
+		DSN:      fmt.Sprintf("file:%s", testDbFile),
 		TraceSQL: trace,
 	})
 	require.NoError(t, err)

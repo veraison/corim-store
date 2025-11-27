@@ -1,9 +1,7 @@
 package model
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -88,7 +86,7 @@ func MeasurementsToCoRIM(origin []*Measurement) (comid.Measurements, error) {
 		corimMea, err := originMea.ToCoRIM()
 		if err != nil {
 			return comid.Measurements{}, fmt.Errorf(
-				"could not conver measurement at index %d: %w", i, err)
+				"could not convert measurement at index %d: %w", i, err)
 		}
 
 		ret.Add(corimMea)
@@ -143,13 +141,8 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 		var mkeyBytes []byte
 
 		switch t := origin.Key.Value.(type) {
-		case comid.UintMkey:
-			mkeyBytes = make([]byte, 8)
-			binary.BigEndian.PutUint64(mkeyBytes, uint64(t))
-		case comid.StringMkey:
-			mkeyBytes = []byte(t)
-		case comid.TaggedUUID:
-			mkeyBytes = t[:]
+		case *comid.StringMkey:
+			mkeyBytes = []byte(*t)
 		case *comid.TaggedUUID:
 			mkeyBytes = (*t)[:]
 		case *comid.TaggedOID:
@@ -312,18 +305,6 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 			if err != nil {
 				return nil, fmt.Errorf("could not initialize UUID mkey: %w", err)
 			}
-		case comid.UintType:
-			var val uint64
-			reader := bytes.NewReader(*o.KeyBytes)
-			err = binary.Read(reader, binary.BigEndian, &val)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse uint64: %w", err)
-			}
-
-			mkey, err = comid.NewMkeyUint(val)
-			if err != nil {
-				return nil, fmt.Errorf("could not create UintMkey: %w", err)
-			}
 		case comid.StringType:
 			mkey, err = comid.NewMkeyString(*o.KeyBytes)
 			if err != nil {
@@ -468,7 +449,7 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 				entry.CodePoint,
 			)
 		default:
-			return nil, fmt.Errorf("unexpted code point: %d", entry.CodePoint)
+			return nil, fmt.Errorf("unexpected code point: %d", entry.CodePoint)
 		}
 	}
 
