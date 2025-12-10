@@ -14,6 +14,11 @@ import (
 var corimCmd = &cobra.Command{
 	Use:   "corim",
 	Short: "CoRIM-related operations.",
+	Long: `CoRIM-related operations.
+
+Subcommands allow adding and removing CoRIMs from the store. See help for the
+individual subcommands.
+	`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckErr(runAddCommand(cmd, args))
@@ -23,7 +28,13 @@ var corimCmd = &cobra.Command{
 var addCmd = &cobra.Command{
 	Use:   "add PATH [PATH ...]",
 	Short: "Add a CoRIM's contents to the store.",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Add a CoRIM's contents to the store.
+
+The specified CoRIM(s) will be parsed and added as a "manifest" to the store.
+Currently, CoRIMs containing only CoMID tags, and CoMID tags containing only
+reference-triple's, endorsed-triple's, and attest-key-triple's, are supported.
+	`,
+	Args: cobra.MinimumNArgs(1),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckErr(runAddCommand(cmd, args))
@@ -33,7 +44,13 @@ var addCmd = &cobra.Command{
 var deleteCmd = &cobra.Command{
 	Use:   "delete PATH_OR_MANIFEST_ID",
 	Short: "Delete data associated with the specified CoRIM or manifest ID.",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Delete data associated with the specified CoRIM or manifest ID.
+
+You can specify the manifest ID directly, or you can specify a path to a CoRIM, in which case
+the ID will be extracted from it (note: either way, the matching is done based on the ID so
+the CoRIM specified does not literally have to be the same file that was previously added).
+	`,
+	Args: cobra.MinimumNArgs(1),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckErr(runDeleteCommand(cmd, args))
@@ -43,7 +60,13 @@ var deleteCmd = &cobra.Command{
 var dumpCmd = &cobra.Command{
 	Use:   "dump MANIFEST_ID",
 	Short: "Write a CoRIM containing data associated with the specified manifest ID.",
-	Args:  cobra.ExactArgs(1),
+	Long: `Write a CoRIM containing data associated with the specified manifest ID.
+
+This produces an unsigned CoRIM token containing the data associated with the
+specified MANIFEST_ID. It is a way to easily "retrieve" a previously added
+CoRIM.
+	`,
+	Args: cobra.ExactArgs(1),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckErr(runDumpCommand(cmd, args))

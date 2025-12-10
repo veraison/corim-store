@@ -40,7 +40,8 @@ func init() {
 	)
 
 	rootCmd.PersistentFlags().Bool(
-		"insecure", false, "Allow insecure operations.",
+		"insecure", false, "Allow insecure operations. Currently, this allows processing signed "+
+			"commits without verifying their signature (unsigned commits are always processed).",
 	)
 
 	rootCmd.PersistentFlags().Bool(
@@ -48,15 +49,18 @@ func init() {
 	)
 
 	rootCmd.PersistentFlags().Bool(
-		"force", false, "Force an operation that would otherwise fail (use with care!).",
+		"force", false, "Force an operation that would otherwise fail potentially overwriting "+
+			"exiting artefacts (use with care!).",
 	)
 
 	rootCmd.PersistentFlags().StringP(
-		"dbms", "D", "sqlite", "DataBase Management System type",
+		"dbms", "D", "sqlite", "DataBase Management System type. Allowed values are \"sqlite\", "+
+			"\"mysql\"/\"mariadb\", and \"postgres\"/\"pg\"/\"pq\".",
 	)
 
 	rootCmd.PersistentFlags().StringP(
-		"dsn", "N", "file:store.db?cache=shared", "Datadase System Name",
+		"dsn", "N", "file:store.db?cache=shared", "Database System Name. This is used to connect to "+
+			"the database server. The format of this string is DBMS-specific.",
 	)
 
 	rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {

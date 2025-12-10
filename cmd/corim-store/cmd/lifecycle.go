@@ -23,7 +23,7 @@ var activateCmd = &cobra.Command{
 
 var deactivateCmd = &cobra.Command{
 	Use:   "deactivate",
-	Short: "Deactivate a (set of) triple(s), making them available to the verifier.",
+	Short: "Deactivate a (set of) triple(s), making them unavailable to the verifier.",
 	Args:  cobra.NoArgs,
 
 	Run: func(cmd *cobra.Command, args []string) {

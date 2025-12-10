@@ -16,9 +16,15 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list WHAT",
 	Short: "List entries of a particular type.",
-	Args:  cobra.ExactArgs(1),
+	Long: `List all entries of a particular type in the store.
+
+The WHAT can be "manifests"/"corims", "modules"/"module_tags"/"comids",
+"entities", or "triples" (slashes indicate alternate names for the same type
+of entry). When the  WHAT is \"triples\", flags can be used to filter the
+results by environment elements (e.g. by model or instance ID)."`,
+	Args: cobra.ExactArgs(1),
 
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckErr(runListCommand(cmd, args))
