@@ -14,7 +14,21 @@ import (
 var getCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get triples matching specified environment.",
-	Args:  cobra.NoArgs,
+	Long: `Get triples matching specified environment.
+
+Flags are used to specify the elements of the environment. Multiple flags can
+be used together (e.g. you can specify a class ID and a model). If a particular
+environment element is not specified, it can be any value in the matched
+environments; unless --exact flag is also used, in which case unspecified elements
+must also be unset in the matched environments.
+
+In addition to environment matching, flags can be used to specify that you only
+want to get active triples, and/or only reference values or only trust anchors
+(by default, all triples with matching environments will be returned).
+
+The triples are returned encoded as JSON.
+	`,
+	Args: cobra.NoArgs,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckErr(runGetCommand(cmd, args))
