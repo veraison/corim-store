@@ -143,3 +143,42 @@ variables. To get then environment variable name, change the setting name to be
 upper case, replace `-` with `_`, and prefix it with `CORIM_STORE_`. E.g. to
 set `no-color` via an environment variable, you would set
 `CORIM_STORE_NO_COLOR=1`.
+
+## Store Design Overview
+
+The store is intended for endorsements, reference values, and trust anchors
+that will be used for attestation verification. These are stored as value and
+key triples, which associate an attesting environment description with
+corresponding measurements and cryptographic keys.
+
+Sets of triples are grouped under "module tags" (corresponding to CoMIDs),
+which are, in turn, associated with "manifests" (corresponding to CoRIMs).
+Module tags group claims (contained in triples) relating to a logical system
+module (hardware, firmware, etc). A manifest acts as an "envelope" containing
+additional metadata about the module tags it contains (such as the validity
+period).
+
+![E-R diagram](misc/corim-store-er-simplified.drawio.png)
+
+The above diagram is a simplified entity-relation diagram for the major
+entities used by the store. It omits some "meta" fields (e.g. foreign keys),
+and only shows the main logical entities within the store. For a complete
+overview of the SQL tables created by the store, please see the [schema
+diagram](misc/corim-store-schema.drawio.png).
+
+### Triple Life Cycle
+
+By default, when triples are added, they are in an inactive state. They must be
+activated in order to become available for use in verification. This decouples
+provisioning values into the store from making them available for verification.
+Triples may also be deactivated (e.g. when the associated attesters have been
+decommissioned), but remain "archived" in the store.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Inactive: add
+    Inactive --> Active: activate
+    Active --> Inactive: deactivate
+    Inactive --> [*]: delete
+    Active --> [*]: delete
+```
