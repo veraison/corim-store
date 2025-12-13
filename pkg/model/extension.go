@@ -17,7 +17,7 @@ func CoRIMExtensionsFromCoRIM(origin corim.Extensions) ([]*ExtensionValue, error
 }
 
 func CoMIDExtensionsFromCoRIM(origin comid.Extensions) ([]*ExtensionValue, error) {
-	var ret []*ExtensionValue
+	var ret []*ExtensionValue // nolint: prealloc
 	if origin.IsEmpty() {
 		return ret, nil
 	}
@@ -78,6 +78,21 @@ func CoMIDExtensionsFromCoRIM(origin comid.Extensions) ([]*ExtensionValue, error
 		ret = append(ret, &retVal)
 	}
 
+	for k, v := range origin.Cached {
+		bytes, err := cbor.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("error CBOR encoding cached extension %s: %w", k, err)
+		}
+
+		retVal := ExtensionValue{
+			FieldName:  "", // empty field name indicates cached value
+			JSONTag:    k,
+			ValueBytes: bytes,
+		}
+
+		ret = append(ret, &retVal)
+	}
+
 	return ret, nil
 }
 
@@ -91,11 +106,23 @@ func CoMIDExtensionsToCoRIM(origin []*ExtensionValue) (comid.Extensions, error) 
 		return comid.Extensions{}, nil
 	}
 
-	values := make([]any, 0, len(origin))
+	values := make(map[string]any, len(origin))
 	fields := make([]reflect.StructField, 0, len(origin))
+	cached := make(map[string]any, len(origin))
 
 	for _, origVal := range origin {
 		var val any
+
+		if origVal.FieldName == "" {
+			// empty field name means this is a cached value
+			if err := cbor.Unmarshal(origVal.ValueBytes, &val); err != nil {
+				return comid.Extensions{}, fmt.Errorf(
+					"error decoding CBOR for %s: %w", origVal.JSONTag, err)
+			}
+
+			cached[origVal.JSONTag] = val
+			continue
+		}
 
 		switch origVal.FieldKind {
 		case reflect.String:
@@ -147,17 +174,21 @@ func CoMIDExtensionsToCoRIM(origin []*ExtensionValue) (comid.Extensions, error) 
 				origVal.CBORTag, origVal.JSONTag)),
 		})
 
-		values = append(values, val)
+		values[origVal.FieldName] = val
 	}
 
 	structType := reflect.StructOf(fields)
 	structPtr := reflect.New(structType)
 	structValue := structPtr.Elem()
 
-	for i, origVal := range origin {
+	for _, origVal := range origin {
+		if origVal.FieldName == "" {
+			continue
+		}
+
 		field := structValue.FieldByName(origVal.FieldName)
 		if field.IsValid() && field.CanSet() {
-			field.Set(reflect.ValueOf(values[i]))
+			field.Set(reflect.ValueOf(values[origVal.FieldName]))
 		} else {
 			return comid.Extensions{}, fmt.Errorf("could not set field %q", origVal.FieldName)
 		}
@@ -165,6 +196,10 @@ func CoMIDExtensionsToCoRIM(origin []*ExtensionValue) (comid.Extensions, error) 
 
 	var ret comid.Extensions
 	ret.IMapValue = structPtr.Interface()
+
+	if len(cached) != 0 {
+		ret.Cached = cached
+	}
 
 	return ret, nil
 }
