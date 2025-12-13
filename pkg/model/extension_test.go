@@ -37,10 +37,14 @@ func TestExtensionValue_round_trip(t *testing.T) {
 
 	var original comid.Extensions
 	original.Register(&extStruct)
+	original.Cached = map[string]any{
+		"-1":  uint64(7),
+		"fum": false,
+	}
 
 	extVals, err := CoMIDExtensionsFromCoRIM(original)
 	assert.NoError(t, err)
-	assert.Len(t, extVals, 8)
+	assert.Len(t, extVals, 10)
 
 	for _, ev := range extVals {
 		ev.OwnerID = 1
@@ -53,7 +57,7 @@ func TestExtensionValue_round_trip(t *testing.T) {
 
 	err = db.NewSelect().Model(&resVals).Scan(ctx)
 	assert.NoError(t, err)
-	assert.Len(t, resVals, 8)
+	assert.Len(t, resVals, 10)
 
 	returnedExts, err := CoMIDExtensionsToCoRIM(resVals)
 	assert.NoError(t, err)
@@ -63,6 +67,8 @@ func TestExtensionValue_round_trip(t *testing.T) {
 	val, err := returnedExts.Get("Qux")
 	assert.NoError(t, err)
 	assert.Equal(t, map[interface{}]interface{}{"Zap": true}, val)
+
+	assert.Equal(t, original.Cached, returnedExts.Cached)
 }
 
 func TestExtensionValue_Select(t *testing.T) {

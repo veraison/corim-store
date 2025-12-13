@@ -19,7 +19,7 @@ require (
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.15
 	github.com/uptrace/bun/extra/bundebug v1.2.15
-	github.com/veraison/corim v1.1.3-0.20251209103150-ef6dbb7ed63f
+	github.com/veraison/corim v1.1.3-0.20251212144809-26e0f2a5f59d
 	github.com/veraison/eat v0.0.0-20210331113810-3da8a4dd42ff
 	github.com/veraison/swid v1.1.1-0.20251003121634-fd1f7f1e1897
 )
