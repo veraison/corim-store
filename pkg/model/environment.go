@@ -324,7 +324,7 @@ func (o Environment) RenderParts() ([][2]string, error) {
 		case comid.OIDType:
 			val = comid.OID(*o.ClassBytes).String()
 		case comid.UUIDType:
-			u, err := uuid.ParseBytes(*o.ClassBytes)
+			u, err := uuid.FromBytes(*o.ClassBytes)
 			if err != nil {
 				return nil, fmt.Errorf("class: %w", err)
 			}
@@ -342,7 +342,7 @@ func (o Environment) RenderParts() ([][2]string, error) {
 		case comid.OIDType:
 			val = comid.OID(*o.InstanceBytes).String()
 		case comid.UUIDType:
-			u, err := uuid.ParseBytes(*o.InstanceBytes)
+			u, err := uuid.FromBytes(*o.InstanceBytes)
 			if err != nil {
 				return nil, fmt.Errorf("class: %w", err)
 			}
