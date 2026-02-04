@@ -21,6 +21,8 @@ import (
 )
 
 var ErrNoLabel = errors.New("a label must be specified (required by store configuration)")
+var ErrNoMatch = errors.New("no triples matched")
+var ErrNoEnvMatch = errors.New("no matching environments found")
 
 type Store struct {
 	Ctx context.Context
@@ -180,10 +182,10 @@ func (o *Store) AddManifest(m *model.Manifest) error {
 					return errors.New("already in store (digests match)")
 				} else {
 					return errors.New(
-						"already in store but digests differ (use --force to overwrite)")
+						"already in store but digests differ")
 				}
 			} else {
-				return errors.New("already in store (use --force to overwrite)")
+				return errors.New("already in store")
 			}
 		}
 	} else if err != sql.ErrNoRows {
@@ -303,14 +305,14 @@ func (o *Store) FindEnvironmentIDs(env *model.Environment, exact bool) ([]int64,
 
 	if err := query.Scan(o.Ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("no matching environments found")
+			return nil, ErrNoEnvMatch
 		}
 
 		return nil, err
 	}
 
 	if len(ret) == 0 {
-		return nil, errors.New("no matching environments found")
+		return nil, ErrNoEnvMatch
 	}
 
 	return ret, nil
@@ -449,6 +451,10 @@ func getTriples[T triple](
 	if env != nil && !env.IsEmpty() {
 		envIDs, err := store.FindEnvironmentIDs(env, exact)
 		if err != nil {
+			if errors.Is(err, ErrNoEnvMatch) {
+				return nil, ErrNoMatch
+			}
+
 			return nil, err
 		}
 
@@ -480,7 +486,7 @@ func getTriples[T triple](
 
 	if err := query.Scan(store.Ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("no triples matched")
+			return nil, ErrNoMatch
 		}
 
 		return nil, err
