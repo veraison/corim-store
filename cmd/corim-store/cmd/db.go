@@ -131,6 +131,21 @@ var statusCmd = &cobra.Command{
 	},
 }
 
+var clearCmd = &cobra.Command{
+	Use:   "clear",
+	Short: "Clear all data from the database",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		db, err := db.Open(cliConfig.DB())
+		CheckErr(err)
+		defer func() { CheckErr(db.Close()) }()
+
+		ctx := context.Background()
+		CheckErr(model.ResetModels(ctx, db))
+		fmt.Println(Green("ok"))
+	},
+}
+
 var schemaCmd = &cobra.Command{
 	Use:   "schema",
 	Short: "Display database schema as SQL.",
@@ -502,6 +517,7 @@ func init() {
 	dbCmd.AddCommand(statusCmd)
 	dbCmd.AddCommand(schemaCmd)
 	dbCmd.AddCommand(fixturesCmd)
+	dbCmd.AddCommand(clearCmd)
 
 	rootCmd.AddCommand(dbCmd)
 }
