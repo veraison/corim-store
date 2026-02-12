@@ -340,6 +340,12 @@ func (o *Store) FindModuleTagIDsForLabel(label string) ([]int64, error) {
 	return ret, nil
 }
 
+// Clear removes all data from store (effectively truncating the tables
+// containing CoRIM/CoMID data).
+func (o *Store) Clear() error {
+	return model.ResetModels(o.Ctx, o.DB)
+}
+
 // StringAggregatorExpr returns an expression using a dialect-specific
 // function to aggregate the specified column (must be TEXT) into a
 // comma-separated list.
