@@ -3,6 +3,12 @@ implemented on top of a relational DBMS, and supporting [CoRIM] inputs.
 
 [CoRIM]: https://datatracker.ietf.org/doc/draft-ietf-rats-corim/
 
+## Installation
+
+```bash
+go install github.com/veraison/corim-store/cmd/corim-store@latest
+```
+
 ## API
 
 ```go
