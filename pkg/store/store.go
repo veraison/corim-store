@@ -348,6 +348,37 @@ func (o *Store) StringAggregatorExpr(columnName string) string {
 	return StringAggregatorExprForDialect(dialect, columnName)
 }
 
+// ConcatExpr returns dialect-specific expression concatenated provided
+// strings.
+func (o *Store) ConcatExpr(tokens ...string) string {
+	dialect := o.DB.Dialect().Name().String()
+	return ConcatExprForDialect(dialect, tokens...)
+}
+
+func (o *Store) HexExpr(columnName string) string {
+	dialect := o.DB.Dialect().Name().String()
+	return HexExprForDialect(dialect, columnName)
+}
+
+// Digest computes the digests of the provided buffer using the store's
+// configured hashing algorithm.
+func (o *Store) Digest(input []byte) []byte {
+	switch o.cfg.HashAlg {
+	case "md5", "MD5":
+		hash := md5.Sum(input)
+		return hash[:]
+	case "sha256", "SHA256":
+		hash := sha256.Sum256(input)
+		return hash[:]
+	case "sha512", "SHA512":
+		hash := sha512.Sum512(input)
+		return hash[:]
+	default:
+		// cfg was validated on creation so we should never get here
+		panic(fmt.Sprintf("invalid hash algorithm: %s", o.cfg.HashAlg))
+	}
+}
+
 func StringAggregatorExprForDialect(dialect, columnName string) string {
 	switch dialect {
 	case "pg":
@@ -361,13 +392,6 @@ func StringAggregatorExprForDialect(dialect, columnName string) string {
 		// unsupported dialect.
 		panic(fmt.Sprintf("unsupported dialect: %s", dialect))
 	}
-}
-
-// ConcatExpr returns dialect-specific expression concatenated provided
-// strings.
-func (o *Store) ConcatExpr(tokens ...string) string {
-	dialect := o.DB.Dialect().Name().String()
-	return ConcatExprForDialect(dialect, tokens...)
 }
 
 func ConcatExprForDialect(dialect string, tokens ...string) string {
@@ -387,11 +411,6 @@ func ConcatExprForDialect(dialect string, tokens ...string) string {
 	}
 }
 
-func (o *Store) HexExpr(columnName string) string {
-	dialect := o.DB.Dialect().Name().String()
-	return HexExprForDialect(dialect, columnName)
-}
-
 func HexExprForDialect(dialect, columnName string) string {
 
 	switch dialect {
@@ -403,25 +422,6 @@ func HexExprForDialect(dialect, columnName string) string {
 		// It should be impossible to instantiate a Store with an
 		// unsupported dialect.
 		panic(fmt.Sprintf("unsupported dialect: %s", dialect))
-	}
-}
-
-// Digest computes the digests of the provided buffer using the store's
-// configured hashing algorithm.
-func (o *Store) Digest(input []byte) []byte {
-	switch o.cfg.HashAlg {
-	case "md5", "MD5":
-		hash := md5.Sum(input)
-		return hash[:]
-	case "sha256", "SHA256":
-		hash := sha256.Sum256(input)
-		return hash[:]
-	case "sha512", "SHA512":
-		hash := sha512.Sum512(input)
-		return hash[:]
-	default:
-		// cfg was validated on creation so we should never get here
-		panic(fmt.Sprintf("invalid hash algorithm: %s", o.cfg.HashAlg))
 	}
 }
 
