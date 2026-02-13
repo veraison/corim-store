@@ -347,12 +347,12 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 
 			switch entry.ValueType {
 			case comid.MinValueType:
-				mval.SVN, err = comid.NewTaggedMinSVN(*entry.ValueInt)
+				mval.SVN, err = comid.NewTaggedMinSVN(uint64(*entry.ValueInt))
 				if err != nil {
 					return nil, fmt.Errorf("could not create TaggedMinSVN: %w", err)
 				}
 			case comid.ExactValueType:
-				mval.SVN, err = comid.NewTaggedSVN(*entry.ValueInt)
+				mval.SVN, err = comid.NewTaggedSVN(uint64(*entry.ValueInt))
 				if err != nil {
 					return nil, fmt.Errorf("could not create TaggedSVN: %w", err)
 				}

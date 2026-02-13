@@ -415,6 +415,7 @@ func TestEnvironment_IsEmpty(t *testing.T) {
 func TestEnvironment_RenderParts(t *testing.T) {
 	oidType := comid.OIDType
 	ueidType := comid.UEIDType
+	uuidType := comid.UUIDType
 	vendor := "foo"
 	model := "bar"
 	layer := uint64(1)
@@ -429,23 +430,26 @@ func TestEnvironment_RenderParts(t *testing.T) {
 		{
 			title: "ok full",
 			env: Environment{
-				Vendor:        &vendor,
-				Model:         &model,
-				ClassType:     &oidType,
-				ClassBytes:    &[]byte{0x01, 0x02, 0x03, 0x04},
-				InstanceType:  &ueidType,
-				InstanceBytes: &[]byte{0x05, 0x06, 0x07, 0x08},
-				GroupType:     &oidType,
-				GroupBytes:    &[]byte{0x09, 0x0a, 0x0b, 0x0c},
-				Layer:         &layer,
-				Index:         &index,
+				Vendor:       &vendor,
+				Model:        &model,
+				ClassType:    &oidType,
+				ClassBytes:   &[]byte{0x01, 0x02, 0x03, 0x04},
+				InstanceType: &uuidType,
+				InstanceBytes: &[]byte{
+					0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+					0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+				},
+				GroupType:  &ueidType,
+				GroupBytes: &[]byte{0x09, 0x0a, 0x0b, 0x0c},
+				Layer:      &layer,
+				Index:      &index,
 			},
 			expected: [][2]string{
 				{"vendor", "foo"},
 				{"model", "bar"},
 				{"class", "0.1.2.3.4"},
-				{"instance", "BQYHCA=="},
-				{"group", "0.9.10.11.12"},
+				{"instance", "01020304-0506-0708-090a-0b0c0d0e0f10"},
+				{"group", "090a0b0c"},
 				{"layer", "1"},
 				{"index", "0"},
 			},

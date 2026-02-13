@@ -21,6 +21,8 @@ import (
 )
 
 var ErrNoLabel = errors.New("a label must be specified (required by store configuration)")
+var ErrNoMatch = errors.New("no triples matched")
+var ErrNoEnvMatch = errors.New("no matching environments found")
 
 type Store struct {
 	Ctx context.Context
@@ -180,10 +182,10 @@ func (o *Store) AddManifest(m *model.Manifest) error {
 					return errors.New("already in store (digests match)")
 				} else {
 					return errors.New(
-						"already in store but digests differ (use --force to overwrite)")
+						"already in store but digests differ")
 				}
 			} else {
-				return errors.New("already in store (use --force to overwrite)")
+				return errors.New("already in store")
 			}
 		}
 	} else if err != sql.ErrNoRows {
@@ -303,14 +305,14 @@ func (o *Store) FindEnvironmentIDs(env *model.Environment, exact bool) ([]int64,
 
 	if err := query.Scan(o.Ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("no matching environments found")
+			return nil, ErrNoEnvMatch
 		}
 
 		return nil, err
 	}
 
 	if len(ret) == 0 {
-		return nil, errors.New("no matching environments found")
+		return nil, ErrNoEnvMatch
 	}
 
 	return ret, nil
@@ -338,12 +340,49 @@ func (o *Store) FindModuleTagIDsForLabel(label string) ([]int64, error) {
 	return ret, nil
 }
 
+// Clear removes all data from store (effectively truncating the tables
+// containing CoRIM/CoMID data).
+func (o *Store) Clear() error {
+	return model.ResetModels(o.Ctx, o.DB)
+}
+
 // StringAggregatorExpr returns an expression using a dialect-specific
 // function to aggregate the specified column (must be TEXT) into a
 // comma-separated list.
 func (o *Store) StringAggregatorExpr(columnName string) string {
 	dialect := o.DB.Dialect().Name().String()
 	return StringAggregatorExprForDialect(dialect, columnName)
+}
+
+// ConcatExpr returns dialect-specific expression concatenated provided
+// strings.
+func (o *Store) ConcatExpr(tokens ...string) string {
+	dialect := o.DB.Dialect().Name().String()
+	return ConcatExprForDialect(dialect, tokens...)
+}
+
+func (o *Store) HexExpr(columnName string) string {
+	dialect := o.DB.Dialect().Name().String()
+	return HexExprForDialect(dialect, columnName)
+}
+
+// Digest computes the digests of the provided buffer using the store's
+// configured hashing algorithm.
+func (o *Store) Digest(input []byte) []byte {
+	switch o.cfg.HashAlg {
+	case "md5", "MD5":
+		hash := md5.Sum(input)
+		return hash[:]
+	case "sha256", "SHA256":
+		hash := sha256.Sum256(input)
+		return hash[:]
+	case "sha512", "SHA512":
+		hash := sha512.Sum512(input)
+		return hash[:]
+	default:
+		// cfg was validated on creation so we should never get here
+		panic(fmt.Sprintf("invalid hash algorithm: %s", o.cfg.HashAlg))
+	}
 }
 
 func StringAggregatorExprForDialect(dialect, columnName string) string {
@@ -359,13 +398,6 @@ func StringAggregatorExprForDialect(dialect, columnName string) string {
 		// unsupported dialect.
 		panic(fmt.Sprintf("unsupported dialect: %s", dialect))
 	}
-}
-
-// ConcatExpr returns dialect-specific expression concatenated provided
-// strings.
-func (o *Store) ConcatExpr(tokens ...string) string {
-	dialect := o.DB.Dialect().Name().String()
-	return ConcatExprForDialect(dialect, tokens...)
 }
 
 func ConcatExprForDialect(dialect string, tokens ...string) string {
@@ -385,11 +417,6 @@ func ConcatExprForDialect(dialect string, tokens ...string) string {
 	}
 }
 
-func (o *Store) HexExpr(columnName string) string {
-	dialect := o.DB.Dialect().Name().String()
-	return HexExprForDialect(dialect, columnName)
-}
-
 func HexExprForDialect(dialect, columnName string) string {
 
 	switch dialect {
@@ -401,25 +428,6 @@ func HexExprForDialect(dialect, columnName string) string {
 		// It should be impossible to instantiate a Store with an
 		// unsupported dialect.
 		panic(fmt.Sprintf("unsupported dialect: %s", dialect))
-	}
-}
-
-// Digest computes the digests of the provided buffer using the store's
-// configured hashing algorithm.
-func (o *Store) Digest(input []byte) []byte {
-	switch o.cfg.HashAlg {
-	case "md5", "MD5":
-		hash := md5.Sum(input)
-		return hash[:]
-	case "sha256", "SHA256":
-		hash := sha256.Sum256(input)
-		return hash[:]
-	case "sha512", "SHA512":
-		hash := sha512.Sum512(input)
-		return hash[:]
-	default:
-		// cfg was validated on creation so we should never get here
-		panic(fmt.Sprintf("invalid hash algorithm: %s", o.cfg.HashAlg))
 	}
 }
 
@@ -449,6 +457,10 @@ func getTriples[T triple](
 	if env != nil && !env.IsEmpty() {
 		envIDs, err := store.FindEnvironmentIDs(env, exact)
 		if err != nil {
+			if errors.Is(err, ErrNoEnvMatch) {
+				return nil, ErrNoMatch
+			}
+
 			return nil, err
 		}
 
@@ -480,7 +492,7 @@ func getTriples[T triple](
 
 	if err := query.Scan(store.Ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("no triples matched")
+			return nil, ErrNoMatch
 		}
 
 		return nil, err

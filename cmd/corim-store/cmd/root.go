@@ -59,7 +59,7 @@ func init() {
 	)
 
 	rootCmd.PersistentFlags().StringP(
-		"dsn", "N", "file:store.db?cache=shared", "Database System Name. This is used to connect to "+
+		"dsn", "N", "file:store.db?cache=shared", "Data Source Name. This is used to connect to "+
 			"the database server. The format of this string is DBMS-specific.",
 	)
 

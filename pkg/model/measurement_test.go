@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"testing"
 
@@ -124,6 +125,7 @@ var (
 func TestMeasurement_convert(t *testing.T) {
 	boolMkey := boolMkeyType(true)
 	svnInt := int64(7)
+	largeSvnInternal := int64(math.MinInt64)
 	testCases := []struct {
 		title    string
 		origin   comid.Measurement
@@ -171,6 +173,23 @@ func TestMeasurement_convert(t *testing.T) {
 						CodePoint: MvalSvn,
 						ValueType: "min-value",
 						ValueInt:  &svnInt,
+					},
+				},
+			},
+		},
+		{
+			title: "ok SVN  large",
+			origin: comid.Measurement{
+				Val: comid.Mval{
+					SVN: comid.MustNewTaggedSVN(uint64(math.MaxInt64 + 1)),
+				},
+			},
+			expected: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint: MvalSvn,
+						ValueType: "exact-value",
+						ValueInt:  &largeSvnInternal,
 					},
 				},
 			},
