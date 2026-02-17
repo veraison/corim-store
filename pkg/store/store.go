@@ -361,6 +361,8 @@ func (o *Store) ConcatExpr(tokens ...string) string {
 	return ConcatExprForDialect(dialect, tokens...)
 }
 
+// HexExpr returns a dialect-specific expression to perform hex encoding
+// on the specified column.
 func (o *Store) HexExpr(columnName string) string {
 	dialect := o.DB.Dialect().Name().String()
 	return HexExprForDialect(dialect, columnName)
