@@ -32,8 +32,10 @@ func TestStore_roundtrip(t *testing.T) {
 	}
 
 	classIDBytes := comid.MustHexDecode(t,
-		"d9025858207f454c4602010100000000000000000003003e00010000005058000000000000")
-	platRefLookup := model.Environment{ClassBytes: &classIDBytes}
+		"7f454c4602010100000000000000000003003e00010000005058000000000000")
+	implID, err := comid.NewImplIDClassID(classIDBytes)
+	require.NoError(t, err)
+	platRefLookup := comid.Environment{Class: &comid.Class{ClassID: implID}}
 
 	valueTriples, err := store.GetValueTriples(&platRefLookup, "cca", false)
 	assert.NoError(t, err)
@@ -41,7 +43,7 @@ func TestStore_roundtrip(t *testing.T) {
 
 	instanceIDBytes := comid.MustHexDecode(t,
 		"0107060504030201000f0e0d0c0b0a090817161514131211101f1e1d1c1b1a1918")
-	taLookup := model.Environment{InstanceBytes: &instanceIDBytes}
+	taLookup := comid.Environment{Instance: comid.MustNewUEIDInstance(instanceIDBytes)}
 
 	keyTriples, err := store.GetKeyTriples(&taLookup, "cca", false)
 	assert.NoError(t, err)
@@ -228,13 +230,16 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 	assert.Equal(t, envOrig.GroupType, envDB.GroupType)
 	assert.Equal(t, envOrig.GroupBytes, envDB.GroupBytes)
 
-	_, err = store.GetActiveKeyTriples(envOrig, "", false)
+	env, err := envOrig.ToCoRIM()
+	require.NoError(t, err)
+
+	_, err = store.GetActiveKeyTriples(env, "", false)
 	assert.NoError(t, err)
 
-	_, err = store.GetActiveKeyTriples(envOrig, "label", false)
+	_, err = store.GetActiveKeyTriples(env, "label", false)
 	assert.NoError(t, err)
 
-	_, err = store.GetActiveValueTriples(envOrig, "label", false)
+	_, err = store.GetActiveValueTriples(env, "label", false)
 	assert.NoError(t, err)
 
 	err = store.AddManifest(otherManifest)

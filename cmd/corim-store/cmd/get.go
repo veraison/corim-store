@@ -51,7 +51,7 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if env.IsEmpty() {
+	if EnvironmentIsEmpty(env) {
 		return errors.New("at least one enviroment field specifier must be provided (see --help)")
 	}
 

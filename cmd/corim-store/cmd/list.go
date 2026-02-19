@@ -10,9 +10,9 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
-	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim-store/pkg/store"
 	"github.com/veraison/corim-store/pkg/util"
+	"github.com/veraison/corim/comid"
 )
 
 var listCmd = &cobra.Command{
@@ -57,7 +57,7 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 	var header []any
 	var rows [][]any
 
-	if what != "triples" && !env.IsEmpty() {
+	if what != "triples" && !EnvironmentIsEmpty(env) {
 		return errors.New("environment specifiers are only allowed for triples")
 	}
 
@@ -219,7 +219,7 @@ func listEntities(store *store.Store) ([]any, [][]any, error) {
 
 func listTriples(
 	store *store.Store,
-	env *model.Environment,
+	env *comid.Environment,
 	label string,
 	exact bool,
 ) ([]any, [][]any, error) {
