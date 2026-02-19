@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/veraison/corim-store/pkg/model"
-	"github.com/veraison/corim-store/pkg/store"
+	storemod "github.com/veraison/corim-store/pkg/store"
 	"github.com/veraison/corim/comid"
 )
 
@@ -51,7 +51,7 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if EnvironmentIsEmpty(env) {
+	if env.IsEmpty() {
 		return errors.New("at least one enviroment field specifier must be provided (see --help)")
 	}
 
@@ -65,7 +65,7 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	store, err := store.Open(context.Background(), cliConfig.Store())
+	store, err := storemod.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
 	}
@@ -77,11 +77,7 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 		var found []*model.ValueTriple
 		var err error
 
-		if activeOnly {
-			found, err = store.GetActiveValueTriples(env, label, exact)
-		} else {
-			found, err = store.GetValueTriples(env, label, exact)
-		}
+		found, err = storemod.GetTripleModels[*model.ValueTriple](store, env, label, exact, activeOnly)
 
 		if err != nil {
 			return err
@@ -102,11 +98,7 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 		var found []*model.KeyTriple
 		var err error
 
-		if activeOnly {
-			found, err = store.GetActiveKeyTriples(env, label, exact)
-		} else {
-			found, err = store.GetKeyTriples(env, label, exact)
-		}
+		found, err = storemod.GetTripleModels[*model.KeyTriple](store, env, label, exact, activeOnly)
 
 		if err != nil {
 			return err

@@ -258,8 +258,18 @@ func (o *Store) GetActiveValueTriples(
 	env *comid.Environment,
 	label string,
 	exact bool,
-) ([]*model.ValueTriple, error) {
-	return getTriples[*model.ValueTriple](o, env, label, exact, true)
+) ([]*comid.ValueTriple, error) {
+	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
+	if err != nil {
+		return nil, err
+	}
+
+	modelTriples, err := GetTripleModels[*model.ValueTriple](o, modelEnv, label, exact, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return modelToCoRIMValueTriples(modelTriples)
 }
 
 // GetValueTriples returns a slice of ValueTriple's whose environment matches
@@ -270,8 +280,18 @@ func (o *Store) GetValueTriples(
 	env *comid.Environment,
 	label string,
 	exact bool,
-) ([]*model.ValueTriple, error) {
-	return getTriples[*model.ValueTriple](o, env, label, exact, false)
+) ([]*comid.ValueTriple, error) {
+	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
+	if err != nil {
+		return nil, err
+	}
+
+	modelTriples, err := GetTripleModels[*model.ValueTriple](o, modelEnv, label, exact, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return modelToCoRIMValueTriples(modelTriples)
 }
 
 // GetActiveKeyTriples returns a slice of KeyTriple's whose environment matches
@@ -282,8 +302,18 @@ func (o *Store) GetActiveKeyTriples(
 	env *comid.Environment,
 	label string,
 	exact bool,
-) ([]*model.KeyTriple, error) {
-	return getTriples[*model.KeyTriple](o, env, label, exact, true)
+) ([]*comid.KeyTriple, error) {
+	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
+	if err != nil {
+		return nil, err
+	}
+
+	modelTriples, err := GetTripleModels[*model.KeyTriple](o, modelEnv, label, exact, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return modelToCoRIMKeyTriples(modelTriples)
 }
 
 // GetKeyTriples returns a slice of KeyTriple's whose environment matches
@@ -294,8 +324,18 @@ func (o *Store) GetKeyTriples(
 	env *comid.Environment,
 	label string,
 	exact bool,
-) ([]*model.KeyTriple, error) {
-	return getTriples[*model.KeyTriple](o, env, label, exact, false)
+) ([]*comid.KeyTriple, error) {
+	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
+	if err != nil {
+		return nil, err
+	}
+
+	modelTriples, err := GetTripleModels[*model.KeyTriple](o, modelEnv, label, exact, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return modelToCoRIMKeyTriples(modelTriples)
 }
 
 func (o *Store) FindEnvironmentIDs(env *model.Environment, exact bool) ([]int64, error) {
@@ -435,17 +475,22 @@ func HexExprForDialect(dialect, columnName string) string {
 }
 
 // In addition to implementing the methods described by the interface, a
-// triple's database table must also contain environment_id and module_id
+// Triple's database table must also contain environment_id and module_id
 // fields.
-type triple interface {
+type Triple interface {
 	TripleType() string
 	DatabaseID() int64
 	Select(ctx context.Context, db bun.IDB) error
 }
 
-func getTriples[T triple](
+// GetTripleModels obtains tiples form the store that match the specified enviroment.
+// If exact is true, the enviroment mathching is exact, otherwise unset fields
+// in the argument enviroment match any value in the corresponding field in the
+// store environments. If activeOnly is true, only triples that are marked as
+// active are returned.
+func GetTripleModels[T Triple](
 	store *Store,
-	env *comid.Environment,
+	env *model.Environment,
 	label string,
 	exact bool,
 	activeOnly bool,
@@ -457,13 +502,8 @@ func getTriples[T triple](
 		query.Where("is_active = true")
 	}
 
-	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
-	if err != nil {
-		return nil, err
-	}
-
-	if modelEnv != nil && !modelEnv.IsEmpty() {
-		envIDs, err := store.FindEnvironmentIDs(modelEnv, exact)
+	if env != nil && !env.IsEmpty() {
+		envIDs, err := store.FindEnvironmentIDs(env, exact)
 		if err != nil {
 			if errors.Is(err, ErrNoEnvMatch) {
 				return nil, ErrNoMatch
@@ -512,6 +552,40 @@ func getTriples[T triple](
 			return nil, fmt.Errorf("%s triple with ID %d: %w",
 				triple.TripleType(), triple.DatabaseID(), err)
 		}
+	}
+
+	return ret, nil
+}
+
+func modelToCoRIMValueTriples(modelTriples []*model.ValueTriple) ([]*comid.ValueTriple, error) {
+	ret := make([]*comid.ValueTriple, len(modelTriples))
+	for i, mt := range modelTriples {
+		ct, err := mt.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf(
+				"could not convert value triple DB ID %d: %w",
+				mt.DatabaseID(), err,
+			)
+		}
+
+		ret[i] = ct
+	}
+
+	return ret, nil
+}
+
+func modelToCoRIMKeyTriples(modelTriples []*model.KeyTriple) ([]*comid.KeyTriple, error) {
+	ret := make([]*comid.KeyTriple, len(modelTriples))
+	for i, mt := range modelTriples {
+		ct, err := mt.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf(
+				"could not convert value triple DB ID %d: %w",
+				mt.DatabaseID(), err,
+			)
+		}
+
+		ret[i] = ct
 	}
 
 	return ret, nil
