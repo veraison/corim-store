@@ -17,6 +17,7 @@ import (
 	"github.com/veraison/corim-store/pkg/db"
 	"github.com/veraison/corim-store/pkg/migrations"
 	"github.com/veraison/corim-store/pkg/model"
+	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
 )
 
@@ -254,7 +255,7 @@ func (o *Store) DeleteManifest(manifestID string, label string) error {
 // environment must be NULL in the database; otherwise, unset fields will
 // match any value. Only active triples are returned.
 func (o *Store) GetActiveValueTriples(
-	env *model.Environment,
+	env *comid.Environment,
 	label string,
 	exact bool,
 ) ([]*model.ValueTriple, error) {
@@ -266,7 +267,7 @@ func (o *Store) GetActiveValueTriples(
 // environment must be NULL in the database; otherwise, unset fields will
 // match any value.
 func (o *Store) GetValueTriples(
-	env *model.Environment,
+	env *comid.Environment,
 	label string,
 	exact bool,
 ) ([]*model.ValueTriple, error) {
@@ -278,7 +279,7 @@ func (o *Store) GetValueTriples(
 // environment must be NULL in the database; otherwise, unset fields will
 // match any value. Only active triples are returned.
 func (o *Store) GetActiveKeyTriples(
-	env *model.Environment,
+	env *comid.Environment,
 	label string,
 	exact bool,
 ) ([]*model.KeyTriple, error) {
@@ -290,7 +291,7 @@ func (o *Store) GetActiveKeyTriples(
 // environment must be NULL in the database; otherwise, unset fields will
 // match any value.
 func (o *Store) GetKeyTriples(
-	env *model.Environment,
+	env *comid.Environment,
 	label string,
 	exact bool,
 ) ([]*model.KeyTriple, error) {
@@ -444,7 +445,7 @@ type triple interface {
 
 func getTriples[T triple](
 	store *Store,
-	env *model.Environment,
+	env *comid.Environment,
 	label string,
 	exact bool,
 	activeOnly bool,
@@ -456,8 +457,13 @@ func getTriples[T triple](
 		query.Where("is_active = true")
 	}
 
-	if env != nil && !env.IsEmpty() {
-		envIDs, err := store.FindEnvironmentIDs(env, exact)
+	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
+	if err != nil {
+		return nil, err
+	}
+
+	if modelEnv != nil && !modelEnv.IsEmpty() {
+		envIDs, err := store.FindEnvironmentIDs(modelEnv, exact)
 		if err != nil {
 			if errors.Is(err, ErrNoEnvMatch) {
 				return nil, ErrNoMatch
