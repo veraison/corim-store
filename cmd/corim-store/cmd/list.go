@@ -10,9 +10,9 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
-	"github.com/veraison/corim-store/pkg/store"
+	"github.com/veraison/corim-store/pkg/model"
+	storemod "github.com/veraison/corim-store/pkg/store"
 	"github.com/veraison/corim-store/pkg/util"
-	"github.com/veraison/corim/comid"
 )
 
 var listCmd = &cobra.Command{
@@ -48,7 +48,7 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	store, err := store.Open(context.Background(), cliConfig.Store())
+	store, err := storemod.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 	var header []any
 	var rows [][]any
 
-	if what != "triples" && !EnvironmentIsEmpty(env) {
+	if what != "triples" && !env.IsEmpty() {
 		return errors.New("environment specifiers are only allowed for triples")
 	}
 
@@ -100,7 +100,7 @@ func runListCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listManifests(store *store.Store) ([]any, [][]any, error) {
+func listManifests(store *storemod.Store) ([]any, [][]any, error) {
 	columns := []string{"label", "manifest_id", "profile",
 		"not_before", "not_after", "digest", "time_added"}
 	retCols := make([]any, 0, len(columns)+1)
@@ -141,7 +141,7 @@ func listManifests(store *store.Store) ([]any, [][]any, error) {
 	return retCols, ret, nil
 }
 
-func listModuleTags(store *store.Store) ([]any, [][]any, error) {
+func listModuleTags(store *storemod.Store) ([]any, [][]any, error) {
 	columns := []string{"tag_id", "language", "manifest", "label"}
 	retCols := make([]any, 0, len(columns)+1)
 
@@ -179,7 +179,7 @@ func listModuleTags(store *store.Store) ([]any, [][]any, error) {
 	return retCols, ret, nil
 }
 
-func listEntities(store *store.Store) ([]any, [][]any, error) {
+func listEntities(store *storemod.Store) ([]any, [][]any, error) {
 	var matches []map[string]any
 	columns := []string{"name", "uri", "owner"}
 	retCols := make([]any, 0, len(columns)+1)
@@ -218,8 +218,8 @@ func listEntities(store *store.Store) ([]any, [][]any, error) {
 }
 
 func listTriples(
-	store *store.Store,
-	env *comid.Environment,
+	store *storemod.Store,
+	env *model.Environment,
 	label string,
 	exact bool,
 ) ([]any, [][]any, error) {
@@ -241,12 +241,12 @@ func listTriples(
 		lookup[match["id"].(int64)] = match
 	}
 
-	keyTriples, err := store.GetKeyTriples(env, label, exact)
+	keyTriples, err := storemod.GetTripleModels[*model.KeyTriple](store, env, label, exact, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting key triples: %w", err)
 	}
 
-	valueTriples, err := store.GetValueTriples(env, label, exact)
+	valueTriples, err := storemod.GetTripleModels[*model.ValueTriple](store, env, label, exact, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting value triples: %w", err)
 	}

@@ -25,7 +25,7 @@ function do_get() {
     config_path=$1
 
      $CORIM_STORE --config "$config_path" corim add "$ROOT_DIR"/sample/corim/*cbor &>/dev/null
-     $CORIM_STORE --config "$config_path" get --class-id psa.impl-id:f0VMRgIBAQAAAAAAAAAAAAMAPgABAAAAUFgAAAAAAAA=
+     $CORIM_STORE --config "$config_path" get --class-id psa.impl-id:2QJYWCB/RUxGAgEBAAAAAAAAAAAAAwA+AAEAAABQWAAAAAAAAA==
 }
 
 @test "SQLite3 get" {

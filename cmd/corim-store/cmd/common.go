@@ -54,16 +54,15 @@ func AddEnviromentFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP("group-id", "g", "", "Environment group ID")
 }
 
-func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
-	var ret comid.Environment
-	var cls comid.Class
+func BuildEnvironment(cmd *cobra.Command) (*model.Environment, error) {
+	var ret model.Environment
 
 	vendor, err := cmd.Flags().GetString("vendor")
 	if err != nil {
 		return nil, fmt.Errorf("vendor: %w", err)
 	}
 	if vendor != "" {
-		cls.Vendor = &vendor
+		ret.Vendor = &vendor
 	}
 
 	model, err := cmd.Flags().GetString("model")
@@ -71,7 +70,7 @@ func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
 		return nil, fmt.Errorf("model: %w", err)
 	}
 	if model != "" {
-		cls.Model = &model
+		ret.Model = &model
 	}
 
 	layerInt, err := cmd.Flags().GetInt64("layer")
@@ -80,7 +79,7 @@ func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
 	}
 	if layerInt > -1 {
 		layer := uint64(layerInt)
-		cls.Layer = &layer
+		ret.Layer = &layer
 	}
 
 	indexInt, err := cmd.Flags().GetInt64("index")
@@ -89,7 +88,7 @@ func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
 	}
 	if indexInt > -1 {
 		index := uint64(indexInt)
-		cls.Index = &index
+		ret.Index = &index
 	}
 
 	classIDText, err := cmd.Flags().GetString("class-id")
@@ -103,14 +102,10 @@ func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
 			return nil, fmt.Errorf("class-id: %w", err)
 		}
 
-		cls.ClassID, err = comid.NewClassID(classIDBytes, classIDType)
-		if err != nil {
-			return nil, fmt.Errorf("class-id: %w", err)
+		ret.ClassBytes = &classIDBytes
+		if classIDType != "" {
+			ret.ClassType = &classIDType
 		}
-	}
-
-	if cls.ClassID != nil || cls.Vendor != nil || cls.Model != nil || cls.Layer != nil || cls.Index != nil {
-		ret.Class = &cls
 	}
 
 	instanceIDText, err := cmd.Flags().GetString("instance-id")
@@ -124,9 +119,9 @@ func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
 			return nil, fmt.Errorf("instance-id: %w", err)
 		}
 
-		ret.Instance, err = comid.NewInstance(instanceIDBytes, instanceIDType)
-		if err != nil {
-			return nil, fmt.Errorf("instance-id: %w", err)
+		ret.InstanceBytes = &instanceIDBytes
+		if instanceIDType != "" {
+			ret.InstanceType = &instanceIDType
 		}
 	}
 
@@ -141,17 +136,13 @@ func BuildEnvironment(cmd *cobra.Command) (*comid.Environment, error) {
 			return nil, fmt.Errorf("group-id: %w", err)
 		}
 
-		ret.Group, err = comid.NewGroup(groupIDBytes, groupIDType)
-		if err != nil {
-			return nil, fmt.Errorf("group-id: %w", err)
+		ret.GroupBytes = &groupIDBytes
+		if groupIDType != "" {
+			ret.GroupType = &groupIDType
 		}
 	}
 
 	return &ret, nil
-}
-
-func EnvironmentIsEmpty(env *comid.Environment) bool {
-	return env.Class == nil && env.Instance == nil && env.Group == nil
 }
 
 func RenderEnviroment(env *model.Environment) (string, error) {
