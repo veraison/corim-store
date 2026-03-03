@@ -258,3 +258,10 @@ func TestModuleTag_Delete(t *testing.T) {
 	err = mt.Delete(context.Background(), db)
 	assert.NoError(t, err)
 }
+
+func TestModuleTag_model_methods(t *testing.T) {
+	val := ModuleTag{ID: 1}
+	assert.Equal(t, val.ID, val.DbID())
+	assert.Equal(t, "module_tags", val.TableName())
+	assert.True(t, val.IsTable())
+}

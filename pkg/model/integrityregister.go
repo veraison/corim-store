@@ -98,6 +98,18 @@ type IntegrityRegister struct {
 	MeasurementID int64 `bun:",nullzero"`
 }
 
+func (o *IntegrityRegister) DbID() int64 {
+	return o.ID
+}
+
+func (o *IntegrityRegister) TableName() string {
+	return "integrity_registers"
+}
+
+func (o *IntegrityRegister) IsTable() bool {
+	return true
+}
+
 // StringIndex return the index of this IntegrityRegister as a string. If
 // IndexText is set, it returns the value it points at, If IndexUint is set,
 // the value it points to formatted as a string is returned. Otherwise, the

@@ -421,6 +421,13 @@ func TestManifest_Delete(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestManifest_model_methods(t *testing.T) {
+	val := Manifest{ID: 1}
+	assert.Equal(t, val.ID, val.DbID())
+	assert.Equal(t, "manifests", val.TableName())
+	assert.True(t, val.IsTable())
+}
+
 func TestNewManifestFromCoRIM_nil_input(t *testing.T) {
 	_, err := NewManifestFromCoRIM(nil)
 	assert.ErrorContains(t, err, "nil input")

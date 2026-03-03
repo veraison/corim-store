@@ -1,0 +1,12 @@
+- model: LinkedTag
+  rows:
+    - id: 1
+      linked_tag_id_type: string
+      linked_tag_id: zot
+      tag_relation: "supplements"
+      module_id: 1
+    - id: 2
+      linked_tag_id_type: string
+      linked_tag_id: zap
+      tag_relation: "replaces"
+      module_id: 2

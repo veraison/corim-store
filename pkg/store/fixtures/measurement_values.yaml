@@ -1,0 +1,47 @@
+- model: MeasurementValueEntry
+  rows:
+    - id: 1
+      code_point: 4 # raw-value
+      value_type: bytes
+      value_bytes: [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      ]
+      measurement_id: 1
+    - id: 2
+      code_point: 11 # name
+      value_type: string
+      value_text: foo
+      measurement_id: 1
+    - id: 3
+      code_point: 2 # svn
+      value_type: int
+      value_int: 42
+      measurement_id: 1
+    - id: 4
+      code_point: 10 # uuid
+      value_type: bytes
+      value_bytes: [
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+      ]
+      measurement_id: 2
+    - id: 5
+      code_point: 15 # int-range
+      value_type: int
+      value_int: 7
+      measurement_id: 2
+    - id: 6
+      code_point: 8 # serial-number
+      value_type: string
+      value_text: "12345"
+      measurement_id: 2
+    - id: 7
+      code_point: 8 # serial-number
+      value_type: string
+      value_text: "12345"
+      measurement_id: 1

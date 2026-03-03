@@ -79,6 +79,9 @@ func TestIntegrityRegister_Select(t *testing.T) {
 	reg.ID = 1
 	err = reg.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "no rows in result")
+	assert.Equal(t, reg.ID, reg.DbID())
+	assert.Equal(t, "integrity_registers", reg.TableName())
+	assert.True(t, reg.IsTable())
 }
 
 func TestIntegrityRegister_Delete(t *testing.T) {

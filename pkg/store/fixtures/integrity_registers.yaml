@@ -1,0 +1,14 @@
+- model: IntegrityRegister
+  rows:
+    - id: 1
+      index_text: reg1
+      measurement_id: 1
+    - id: 2
+      index_text: reg2
+      measurement_id: 1
+    - id: 3
+      index_uint: 1
+      measurement_id: 2
+    - id: 4
+      index_uint: 2
+      measurement_id: 2

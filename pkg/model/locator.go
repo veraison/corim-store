@@ -68,6 +68,18 @@ func NewLocatorFromCoRIM(origin corim.Locator) (*Locator, error) {
 	return &ret, nil
 }
 
+func (o *Locator) DbID() int64 {
+	return o.ID
+}
+
+func (o *Locator) TableName() string {
+	return "locators"
+}
+
+func (o *Locator) IsTable() bool {
+	return true
+}
+
 func (o *Locator) ToCoRIM() (corim.Locator, error) {
 	ret := corim.Locator{
 		Href: comid.TaggedURI(o.Href),

@@ -81,6 +81,18 @@ func SelectCryptoKey(ctx context.Context, db bun.IDB, id int64) (*CryptoKey, err
 	return &ret, nil
 }
 
+func (o *CryptoKey) DbID() int64 {
+	return o.ID
+}
+
+func (o *CryptoKey) TableName() string {
+	return "cryptokeys"
+}
+
+func (o *CryptoKey) IsTable() bool {
+	return true
+}
+
 func (o *CryptoKey) FromCoRIM(origin *comid.CryptoKey) error {
 	if origin == nil {
 		return errors.New("nil origin")

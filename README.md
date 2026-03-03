@@ -20,8 +20,8 @@ import (
     "log"
     "os"
 
-	"github.com/veraison/corim-store/pkg/store"
-	"github.com/veraison/corim/comid"
+	"github.com/veraison/corim-store/pkg/model"
+	storemod "github.com/veraison/corim-store/pkg/store"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 
     cfg := store.NewConfig("sqlite", "file::memory:?cache=shared")
 
-    store, err := store.Open(context.Background(), cfg)
+    store, err := storemod.Open(context.Background(), cfg)
     if err != nil {
         log.Fatal(err)
     }
@@ -51,25 +51,67 @@ func main() {
 
     // Query the store for a trust anchor associated with an instance ID.
 
-	instanceBytes, err := comid.NewUEIDInstance([]byte{
-		0x01, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
-		0x00, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
-		0x08, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
-		0x10, 0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19,
-		0x18,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+    query := storemod.NewKeyTriplesQuery().
+            Label("cca").
+            Environment(func (eq *EnvironmentQuery) {
+                eq.InstanceBytes([]byte{
+                        0x01, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+                        0x00, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
+                        0x08, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+                        0x10, 0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19,
+                        0x18,
+                })
+            })
 
-	keyTriples, err := store.GetKeyTriples(&comid.Environment{Instance: instanceBytes}, "cca", false)
-	if err != nil {
-		log.Fatal(err)
-	}
+    keyTriples, err := store.QueryKeyTriples(query)
+    if err != nil {
+        log.Fatal(err)
+    }
 
 	fmt.Printf("key: %s\n", string(keyTriples[0].VerifKeys.String()))
 }
 ```
+
+### Querying the Store
+
+The `Store` provides the following query methods:
+
+```go
+QueryManifestEntries(*ManifestQuery) ([]*model.ManifestEntry, error)
+QueryManifestModels(*ManifestQuery) ([]*model.Manifest, error)
+QueryCoRIMs(*ManifestQuery) ([]*corim.UnsignedCorim, error)
+
+QueryModuleTagEntries(*ModuleTagQuery) ([]*model.ModuleTagEntry, error)
+QueryModuleTagModels(*ModuleTagQuery) ([]*model.ModuleTag, error)
+QueryCoMIDs(*ModuleTagQuery) ([]*comid.Comid, error)
+
+QueryKeyTripleEntries(*KeyTripleQuery) ([]*model.KeyTripleEntry, error)
+QueryKeyTripleModels(*KeyTripleQuery) ([]*model.KeyTriple, error)
+QueryKeyTriples(*KeyTripleQuery) ([]*comid.KeyTriple, error)
+
+QueryValueTripleEntries(*ValueTripleQuery) ([]*model.ValueTripleEntry, error)
+QueryValueTripleModels(*ValueTripleQuery) ([]*model.ValueTriple, error)
+QueryValueTriples(*ValueTripleQuery) ([]*comid.ValueTriple, error)
+
+QueryEntityModels(*EntityQuery) ([]*model.Entity, error)
+QueryCoRIMEntities(*EntityQuery) ([]*corim.Entity, error)
+QueryCoMIDEntities(*EntityQuery) ([]*comid.Entity, error)
+
+QueryEnvironmentModels(*EnvironmentQuery) ([]*model.Environment, error)
+QueryEnvironments(*EnvironmentQuery) ([]*comid.Environment, error)
+```
+
+In most cases, a query for an object (e.g. a triple) can be run against one of
+three methods: one returning "entries", one returning models, and one returning
+`corim` library objects. An entry will have fields from the surrounding context
+(e.g. a triple entry will have the label and validity timestamps from the
+manifest that contains it), but will not have nested structures (e. g. a value
+triple entry will not have measurements). A model will have nested structures
+populated but will not have the surrounding context.
+
+In general, querying entries is faster than querying models or `corim`
+structures, so you should prefer this if you don't need to access the nested
+structures.
 
 ## CLI
 

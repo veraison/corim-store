@@ -1,0 +1,17 @@
+- model: RoleEntry
+  rows:
+    - id: 1
+      role: manifestCreator
+      entity_id: 1
+    - id: 2
+      role: manifestSigner
+      entity_id: 2
+    - id: 3
+      role: manifestCreator
+      entity_id: 3
+    - id: 4
+      role: tagCreator
+      entity_id: 4
+    - id: 5
+      role: maintainer
+      entity_id: 4

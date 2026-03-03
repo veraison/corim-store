@@ -120,6 +120,18 @@ func NewCoMIDRoleEntry(text string) (*RoleEntry, error) {
 	return &ret, nil
 }
 
+func (o *RoleEntry) DbID() int64 {
+	return o.ID
+}
+
+func (o *RoleEntry) TableName() string {
+	return "roles"
+}
+
+func (o *RoleEntry) IsTable() bool {
+	return true
+}
+
 func (o *RoleEntry) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Ignore().Exec(ctx)
 	return err

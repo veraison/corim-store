@@ -1,0 +1,8 @@
+- model: Locator
+  rows:
+    - id: 1
+      href: foo
+      manifest_id: 1
+    - id: 2
+      href: bar
+      manifest_id: 2

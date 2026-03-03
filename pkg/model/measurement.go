@@ -46,6 +46,29 @@ type MeasurementValueEntry struct {
 	MeasurementID int64
 }
 
+func (o *MeasurementValueEntry) DbID() int64 {
+	return o.ID
+}
+
+func (o *MeasurementValueEntry) TableName() string {
+	return "measurement_value_entries"
+}
+
+func (o *MeasurementValueEntry) IsTable() bool {
+	return true
+}
+
+func (o *MeasurementValueEntry) Select(ctx context.Context, db bun.IDB) error {
+	if o.ID == 0 {
+		return errors.New("ID not set")
+	}
+
+	return db.NewSelect().
+		Model(o).
+		Where("mve.id = ?", o.ID).
+		Scan(ctx)
+}
+
 func (o *MeasurementValueEntry) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Exec(ctx)
 	return err
@@ -133,6 +156,18 @@ func SelectMeasurement(ctx context.Context, db bun.IDB, id int64) (*Measurement,
 	}
 
 	return &ret, nil
+}
+
+func (o *Measurement) DbID() int64 {
+	return o.ID
+}
+
+func (o *Measurement) TableName() string {
+	return "measurements"
+}
+
+func (o *Measurement) IsTable() bool {
+	return true
 }
 
 func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {

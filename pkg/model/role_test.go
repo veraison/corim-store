@@ -95,3 +95,10 @@ func TestMustNewCoMIDRoleEntry(t *testing.T) {
 
 	assert.Panics(t, func() { MustNewCoMIDRoleEntry("foo") })
 }
+
+func TestRoleEntry_model_methods(t *testing.T) {
+	val := RoleEntry{ID: 1}
+	assert.Equal(t, val.ID, val.DbID())
+	assert.Equal(t, "roles", val.TableName())
+	assert.True(t, val.IsTable())
+}

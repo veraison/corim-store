@@ -1,0 +1,46 @@
+- model: Measurement
+  rows:
+    - id: 1
+      key_type: oid
+      key_bytes: [
+        0x01, 0x02, 0x03, 0x04,
+      ]
+      owner_id: 1
+      owner_type: value_triple
+    - id: 2
+      key_type: uuid
+      key_bytes: [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      ]
+      owner_id: 3
+      owner_type: value_triple
+    - id: 3
+      key_type: string
+      key_bytes: [
+        0x66, 0x6f, 0x6f,  # "foo"
+      ]
+      owner_id: 1
+      owner_type: key_triple
+    - id: 4
+      key_type: uint
+      key_bytes: [
+        0x01,
+      ]
+      owner_id: 2
+      owner_type: key_triple
+    - id: 5
+      key_type: oid
+      key_bytes: [
+        0x01, 0x02, 0x03, 0x04,
+      ]
+      owner_id: 2
+      owner_type: value_triple
+    - id: 6
+      key_type: uuid
+      key_bytes: [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      ]
+      owner_id: 1
+      owner_type: value_triple

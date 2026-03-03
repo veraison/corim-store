@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -26,8 +25,7 @@ In addition to environment matching, flags can be used to specify that you only
 want to get active triples, and/or only reference values or only trust anchors
 (by default, all triples with matching environments will be returned).
 
-The triples are returned encoded as JSON.
-	`,
+The triples are returned encoded as JSON.` + flagsHelp + timeHelp,
 	Args: cobra.NoArgs,
 
 	Run: func(cmd *cobra.Command, args []string) {
@@ -36,31 +34,7 @@ The triples are returned encoded as JSON.
 }
 
 func runGetCommand(cmd *cobra.Command, args []string) error {
-	label, err := cmd.Flags().GetString("label")
-	if err != nil {
-		return err
-	}
-
 	selector, err := buildSelector(cmd)
-	if err != nil {
-		return err
-	}
-
-	env, err := BuildEnvironment(cmd)
-	if err != nil {
-		return err
-	}
-
-	if env.IsEmpty() {
-		return errors.New("at least one enviroment field specifier must be provided (see --help)")
-	}
-
-	exact, err := cmd.Flags().GetBool("exact")
-	if err != nil {
-		return err
-	}
-
-	activeOnly, err := cmd.Flags().GetBool("active")
 	if err != nil {
 		return err
 	}
@@ -74,11 +48,12 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 	var result comid.Triples
 
 	if selector.Endorsements || selector.ReferenceValues {
-		var found []*model.ValueTriple
-		var err error
+		query, err := BuildValueTripleQuery(cmd.Flags())
+		if err != nil {
+			return err
+		}
 
-		found, err = storemod.GetTripleModels[*model.ValueTriple](store, env, label, exact, activeOnly)
-
+		found, err := store.QueryValueTripleModels(query)
 		if err != nil {
 			return err
 		}
@@ -95,11 +70,12 @@ func runGetCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	if selector.TrustAnchors {
-		var found []*model.KeyTriple
-		var err error
+		query, err := BuildKeyTripleQuery(cmd.Flags())
+		if err != nil {
+			return err
+		}
 
-		found, err = storemod.GetTripleModels[*model.KeyTriple](store, env, label, exact, activeOnly)
-
+		found, err := store.QueryKeyTripleModels(query)
 		if err != nil {
 			return err
 		}
@@ -156,18 +132,11 @@ func buildSelector(cmd *cobra.Command) (*LookupMap, error) {
 }
 
 func init() {
-	AddEnviromentFlags(getCmd)
+	AddQueryFlags(getCmd)
+
 	getCmd.Flags().BoolP("reference-values", "R", false, "Look up reference values.")
 	getCmd.Flags().BoolP("endorsements", "E", false, "Look up endorsements.")
 	getCmd.Flags().BoolP("trust-anchors", "T", false, "Look up trust anchors.")
-
-	getCmd.Flags().StringP("label", "l", "",
-		"Label that will be applied to the manifest in the store.")
-
-	getCmd.Flags().BoolP("exact", "e", false,
-		"Match environments exactly, including null fields. The default is to assume that "+
-			"null fields (i.e. fields not explicitly specified) can match any value.")
-	getCmd.Flags().BoolP("active", "a", false, "Only look up active triples.")
 
 	rootCmd.AddCommand(getCmd)
 }

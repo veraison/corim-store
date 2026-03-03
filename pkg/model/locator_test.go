@@ -39,6 +39,13 @@ func TestLocator_Select(t *testing.T) {
 	assert.ErrorContains(t, err, "no rows in result")
 }
 
+func TestLocator_model_methods(t *testing.T) {
+	lt := Locator{ID: 1}
+	assert.Equal(t, lt.ID, lt.DbID())
+	assert.Equal(t, "locators", lt.TableName())
+	assert.True(t, lt.IsTable())
+}
+
 func TestLocator_Delete(t *testing.T) {
 	var loc Locator
 	db := test.NewTestDB(t)

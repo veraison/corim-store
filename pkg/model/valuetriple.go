@@ -95,6 +95,18 @@ func SelectValueTriple(ctx context.Context, db bun.IDB, id int64) (*ValueTriple,
 	return &ret, nil
 }
 
+func (o *ValueTriple) DbID() int64 {
+	return o.ID
+}
+
+func (o *ValueTriple) TableName() string {
+	return "value_triples"
+}
+
+func (o *ValueTriple) IsTable() bool {
+	return true
+}
+
 func (o *ValueTriple) FromCoRIM(origin *comid.ValueTriple) error {
 	env, err := NewEnvironmentFromCoRIM(&origin.Environment)
 	if err != nil {

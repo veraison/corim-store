@@ -223,6 +223,18 @@ type ExtensionValue struct {
 	OwnerType string `bun:",nullzero"`
 }
 
+func (o *ExtensionValue) DbID() int64 {
+	return o.ID
+}
+
+func (o *ExtensionValue) TableName() string {
+	return "extensions"
+}
+
+func (o *ExtensionValue) IsTable() bool {
+	return true
+}
+
 func (o *ExtensionValue) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Exec(ctx)
 	return err

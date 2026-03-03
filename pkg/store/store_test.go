@@ -14,22 +14,8 @@ import (
 )
 
 func TestStore_roundtrip(t *testing.T) {
-	db := test.NewTestDB(t)
-	store, err := OpenWithDB(context.Background(), db)
-	assert.NoError(t, err)
+	store := newStoreWithSampleCoRIMs(t)
 	defer func() { assert.NoError(t, store.Close()) }()
-
-	for _, path := range []string{
-		"../../sample/corim/unsigned-cca-ref-plat.cbor",
-		"../../sample/corim/unsigned-cca-ref-realm.cbor",
-		"../../sample/corim/unsigned-cca-ta.cbor",
-	} {
-		bytes, err := os.ReadFile(path)
-		require.NoError(t, err)
-
-		err = store.AddBytes(bytes, "cca", false)
-		require.NoError(t, err)
-	}
 
 	classIDBytes := comid.MustHexDecode(t,
 		"7f454c4602010100000000000000000003003e00010000005058000000000000")
@@ -37,7 +23,10 @@ func TestStore_roundtrip(t *testing.T) {
 	require.NoError(t, err)
 	platRefLookup := comid.Environment{Class: &comid.Class{ClassID: implID}}
 
-	valueTriples, err := store.GetValueTriples(&platRefLookup, "cca", false)
+	valueQuery := NewValueTripleQuery().Label("cca")
+	assert.NoError(t, valueQuery.EnvironmentSubquery().UpdateFromCoRIM(&platRefLookup))
+
+	valueTriples, err := store.QueryValueTriples(valueQuery)
 	assert.NoError(t, err)
 	assert.Len(t, valueTriples, 1)
 
@@ -45,7 +34,10 @@ func TestStore_roundtrip(t *testing.T) {
 		"0107060504030201000f0e0d0c0b0a090817161514131211101f1e1d1c1b1a1918")
 	taLookup := comid.Environment{Instance: comid.MustNewUEIDInstance(instanceIDBytes)}
 
-	keyTriples, err := store.GetKeyTriples(&taLookup, "cca", false)
+	keyQuery := NewKeyTripleQuery().Label("cca")
+	assert.NoError(t, keyQuery.EnvironmentSubquery().UpdateFromCoRIM(&taLookup))
+
+	keyTriples, err := store.QueryKeyTriples(keyQuery)
 	assert.NoError(t, err)
 	assert.Len(t, keyTriples, 1)
 }
@@ -197,6 +189,7 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	manifest.Digest = []byte{0xde, 0xad, 0xbe, 0xef}
 	manifest.Label = "label"
+	manifest.SetActive(true)
 
 	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
 	require.NoError(t, err)
@@ -233,14 +226,11 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 	env, err := envOrig.ToCoRIM()
 	require.NoError(t, err)
 
-	_, err = store.GetActiveKeyTriples(env, "", false)
-	assert.NoError(t, err)
-
 	_, err = store.GetActiveKeyTriples(env, "label", false)
 	assert.NoError(t, err)
 
 	_, err = store.GetActiveValueTriples(env, "label", false)
-	assert.NoError(t, err)
+	assert.ErrorIs(t, err, ErrNoMatch)
 
 	err = store.AddManifest(otherManifest)
 	assert.ErrorContains(t, err, "already in store (digests match)")
@@ -262,19 +252,6 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 
 	err = store.DeleteManifest(manifest.ManifestID, "label")
 	assert.ErrorContains(t, err, "manifest with ID \"cca-ta\" not found")
-}
-
-func TestStore_Find_bad(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
-	require.NoError(t, err)
-
-	testLayer := uint64(1)
-	lookupEnv := model.Environment{Layer: &testLayer}
-	_, err = store.FindEnvironmentIDs(&lookupEnv, false)
-	assert.ErrorContains(t, err, "no matching environments found")
-
-	_, err = store.FindModuleTagIDsForLabel("")
-	assert.ErrorContains(t, err, "no label specified")
 }
 
 func TestStore_StringAggregatorExpr(t *testing.T) {
@@ -420,4 +397,102 @@ func TestStore_Digest(t *testing.T) {
 
 	store.cfg.HashAlg = "foo"
 	assert.Panics(t, func() { store.Digest(test_input) })
+}
+
+func TestStore_QueryCoRIMs(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	corims, err := store.QueryCoRIMs(nil)
+	assert.NoError(t, err)
+	assert.Len(t, corims, 3)
+	assert.Equal(t, "cca-ref-plat", corims[0].ID.String())
+}
+
+func TestStore_QueryCoMIDs(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	comids, err := store.QueryCoMIDs(nil)
+	assert.NoError(t, err)
+	assert.Len(t, comids, 3)
+	assert.Equal(t, uint(0), comids[0].TagIdentity.TagVersion)
+}
+
+func TestStore_QueryCoMIDEntities(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	comids, err := store.QueryCoMIDEntities(nil)
+	assert.NoError(t, err)
+	assert.Len(t, comids, 3)
+	assert.Equal(t, "ACME Ltd.", comids[0].Name.String())
+}
+
+func TestStore_QueryCoRIMEntities(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	comids, err := store.QueryCoRIMEntities(nil)
+	assert.ErrorIs(t, err, ErrNoMatch)
+	assert.Len(t, comids, 0)
+}
+
+func TestStore_QueryKeyTriples(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	triples, err := store.QueryKeyTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 1)
+	assert.Equal(t,
+		"AQcGBQQDAgEADw4NDAsKCQgXFhUUExIREB8eHRwbGhkY",
+		triples[0].Environment.Instance.String(),
+	)
+}
+
+func TestStore_QueryValueTriples(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	triples, err := store.QueryValueTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 2)
+	assert.Equal(t,
+		"f0VMRgIBAQAAAAAAAAAAAAMAPgABAAAAUFgAAAAAAAA=",
+		triples[0].Environment.Class.ClassID.String(),
+	)
+}
+
+func TestStore_QueryEnvironments(t *testing.T) {
+	store := newStoreWithSampleCoRIMs(t)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	environments, err := store.QueryEnvironments(nil)
+	assert.NoError(t, err)
+	assert.Len(t, environments, 3)
+	assert.Equal(t,
+		"f0VMRgIBAQAAAAAAAAAAAAMAPgABAAAAUFgAAAAAAAA=",
+		environments[0].Class.ClassID.String(),
+	)
+}
+
+func newStoreWithSampleCoRIMs(t *testing.T) *Store {
+	db := test.NewTestDB(t)
+	store, err := OpenWithDB(context.Background(), db)
+	assert.NoError(t, err)
+
+	for _, path := range []string{
+		"../../sample/corim/unsigned-cca-ref-plat.cbor",
+		"../../sample/corim/unsigned-cca-ref-realm.cbor",
+		"../../sample/corim/unsigned-cca-ta.cbor",
+	} {
+		bytes, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		err = store.AddBytes(bytes, "cca", false)
+		require.NoError(t, err)
+	}
+
+	return store
 }

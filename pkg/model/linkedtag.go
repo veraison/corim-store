@@ -88,6 +88,18 @@ type LinkedTag struct {
 	ModuleID int64 `bun:",nullzero"`
 }
 
+func (o *LinkedTag) DbID() int64 {
+	return o.ID
+}
+
+func (o *LinkedTag) TableName() string {
+	return "linked_tags"
+}
+
+func (o *LinkedTag) IsTable() bool {
+	return true
+}
+
 func (o *LinkedTag) FromCoRIM(origin *comid.LinkedTag) error {
 	o.LinkedTagID = origin.LinkedTagID.String()
 
