@@ -1,0 +1,18 @@
+- model: Flag
+  rows:
+    - id: 1
+      code_point: 1
+      value: true
+      measurement_id: 1
+    - id: 2
+      code_point: 2
+      value: false
+      measurement_id: 1
+    - id: 3
+      code_point: 1
+      value: false
+      measurement_id: 2
+    - id: 4
+      code_point: 2
+      value: true
+      measurement_id: 2

@@ -121,6 +121,18 @@ func NewCoMIDEntityFromCoRIM(origin *comid.Entity) (*Entity, error) {
 	return &ret, nil
 }
 
+func (o *Entity) DbID() int64 {
+	return o.ID
+}
+
+func (o *Entity) TableName() string {
+	return "entities"
+}
+
+func (o *Entity) IsTable() bool {
+	return true
+}
+
 func (o *Entity) FromCoRIMCoRIM(origin *corim.Entity) error {
 	var err error
 

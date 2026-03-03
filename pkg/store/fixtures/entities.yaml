@@ -1,0 +1,26 @@
+- model: Entity
+  rows:
+    - id: 1
+      name_type: string
+      name: foo
+      uri: http://example.com
+      owner_id: 1
+      owner_type: manifest
+    - id: 2
+      name_type: string
+      name: bar
+      uri: http://acme.com
+      owner_id: 1
+      owner_type: manifest
+    - id: 3
+      name_type: string
+      name: baz
+      uri: http://roadrunnertrapsrus.com
+      owner_id: 2
+      owner_type: manifest
+    - id: 4
+      name_type: string
+      name: qux
+      uri: http://roadrunnertrapsrus.com
+      owner_id: 1
+      owner_type: module_tag

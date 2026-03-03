@@ -153,6 +153,18 @@ func NewFlag(cp int64, val bool) *Flag {
 	}
 }
 
+func (o *Flag) DbID() int64 {
+	return o.ID
+}
+
+func (o *Flag) TableName() string {
+	return "flags"
+}
+
+func (o *Flag) IsTable() bool {
+	return true
+}
+
 func (o *Flag) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Exec(ctx)
 	return err

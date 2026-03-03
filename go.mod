@@ -1,8 +1,9 @@
 module github.com/veraison/corim-store
 
-go 1.24.0
+go 1.26
 
 require (
+	github.com/client9/nowandlater v0.0.0-20260404034050-1b3c2641e1ad
 	github.com/fxamacker/cbor/v2 v2.8.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
@@ -62,6 +63,7 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
+	github.com/veraison/cmw v0.2.0 // indirect
 	github.com/veraison/go-cose v1.2.1 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect

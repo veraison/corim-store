@@ -22,8 +22,7 @@ import (
 )
 
 var ErrNoLabel = errors.New("a label must be specified (required by store configuration)")
-var ErrNoMatch = errors.New("no triples matched")
-var ErrNoEnvMatch = errors.New("no matching environments found")
+var ErrNoMatch = errors.New("no match found")
 
 type Store struct {
 	Ctx context.Context
@@ -259,39 +258,17 @@ func (o *Store) GetActiveValueTriples(
 	label string,
 	exact bool,
 ) ([]*comid.ValueTriple, error) {
-	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
-	if err != nil {
+	query := NewValueTripleQuery().
+		Label(label).
+		ExactEnvironment(exact).
+		IsActive(true).
+		ValidOn(time.Now())
+
+	if err := query.EnvironmentSubquery().UpdateFromCoRIM(env); err != nil {
 		return nil, err
 	}
 
-	modelTriples, err := GetTripleModels[*model.ValueTriple](o, modelEnv, label, exact, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return modelToCoRIMValueTriples(modelTriples)
-}
-
-// GetValueTriples returns a slice of ValueTriple's whose environment matches
-// the one provided. If exact is true, any unset fields in the provided
-// environment must be NULL in the database; otherwise, unset fields will
-// match any value.
-func (o *Store) GetValueTriples(
-	env *comid.Environment,
-	label string,
-	exact bool,
-) ([]*comid.ValueTriple, error) {
-	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
-	if err != nil {
-		return nil, err
-	}
-
-	modelTriples, err := GetTripleModels[*model.ValueTriple](o, modelEnv, label, exact, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return modelToCoRIMValueTriples(modelTriples)
+	return o.QueryValueTriples(query)
 }
 
 // GetActiveKeyTriples returns a slice of KeyTriple's whose environment matches
@@ -303,79 +280,349 @@ func (o *Store) GetActiveKeyTriples(
 	label string,
 	exact bool,
 ) ([]*comid.KeyTriple, error) {
-	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
-	if err != nil {
+	query := NewKeyTripleQuery().
+		Label(label).
+		ExactEnvironment(exact).
+		IsActive(true).
+		ValidOn(time.Now())
+
+	if err := query.EnvironmentSubquery().UpdateFromCoRIM(env); err != nil {
 		return nil, err
 	}
 
-	modelTriples, err := GetTripleModels[*model.KeyTriple](o, modelEnv, label, exact, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return modelToCoRIMKeyTriples(modelTriples)
+	return o.QueryKeyTriples(query)
 }
 
-// GetKeyTriples returns a slice of KeyTriple's whose environment matches
-// the one provided. If exact is true, any unset fields in the provided
-// environment must be NULL in the database; otherwise, unset fields will
-// match any value.
-func (o *Store) GetKeyTriples(
-	env *comid.Environment,
-	label string,
-	exact bool,
-) ([]*comid.KeyTriple, error) {
-	modelEnv, err := model.NewEnvironmentFromCoRIM(env)
-	if err != nil {
-		return nil, err
+// QueryManifestEntries returns ManifestEntry's that match the provided query.
+// If the query is empty or is nil, all ManifestEntry's in the Store are
+// returned. Unlike Manifest models (see below), ManifestEntry's only contain
+// fields related to the manifest itself and not any of its contents
+// (ModuleTags, DependentRIMs, etc).
+func (o *Store) QueryManifestEntries(query Query[*model.ManifestEntry]) ([]*model.ManifestEntry, error) {
+	if query == nil {
+		query = NewManifestQuery()
 	}
 
-	modelTriples, err := GetTripleModels[*model.KeyTriple](o, modelEnv, label, exact, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return modelToCoRIMKeyTriples(modelTriples)
+	return query.Run(o.Ctx, o.DB)
 }
 
-func (o *Store) FindEnvironmentIDs(env *model.Environment, exact bool) ([]int64, error) {
-	var ret []int64
+// QueryManifestModels returns Manifest models that match the provided query.
+// If the query is empty or is nil, all Manifest's in the Store are returned.
+// The returned Manifest models are fully populated, incuding their contained
+// structures such as ModuleTag's (contrast with QueryManifestEntries above).
+func (o *Store) QueryManifestModels(query Query[*model.ManifestEntry]) ([]*model.Manifest, error) {
+	entries, err := o.QueryManifestEntries(query)
+	if err != nil {
+		return nil, err
+	}
 
-	query := o.DB.NewSelect().Model(&ret).Table("environments").Column("id")
-	model.UpdateSelectQueryFromEnvironment(query, env, exact)
-
-	if err := query.Scan(o.Ctx); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNoEnvMatch
+	ret := make([]*model.Manifest, len(entries))
+	for i, entry := range entries {
+		moduleTag, err := entry.ToManifest(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("manifest ID %d: %w", moduleTag.ID, err)
 		}
 
-		return nil, err
-	}
-
-	if len(ret) == 0 {
-		return nil, ErrNoEnvMatch
+		ret[i] = moduleTag
 	}
 
 	return ret, nil
 }
 
-func (o *Store) FindModuleTagIDsForLabel(label string) ([]int64, error) {
-	if label == "" {
-		return nil, errors.New("no label specified")
-	}
-
-	var ret []int64
-
-	err := o.DB.NewSelect().
-		Model(&ret).
-		TableExpr("module_tags AS mod").
-		ColumnExpr("mod.id").
-		Join("JOIN manifests AS man ON man.id = mod.manifest_id").
-		Where("man.label = ?", label).
-		Scan(o.Ctx)
-
+// QueryCoRIMs returns corim.UnsignedCorim's that match the provided query.
+// Note that these are reconstructed from Store content, and are not parsed
+// form the tokens that were originally added to the store.
+func (o *Store) QueryCoRIMs(query Query[*model.ManifestEntry]) ([]*corim.UnsignedCorim, error) {
+	models, err := o.QueryManifestModels(query)
 	if err != nil {
 		return nil, err
+	}
+
+	ret := make([]*corim.UnsignedCorim, len(models))
+	for i, model := range models {
+		c, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("manifest ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = c
+	}
+
+	return ret, nil
+}
+
+// QueryModuleTagEntries returns ModuleTagEntry's that match the provided query.
+// If the query is empty or is nil, all ModuleTagEntry's in the Store are
+// returned. Unlike ModuleTag models (see below), ModuleTagEntry's only contain
+// fields related to the module tag itself and not any of its contents
+// (triples, linked tags, etc).
+func (o *Store) QueryModuleTagEntries(query Query[*model.ModuleTagEntry]) ([]*model.ModuleTagEntry, error) {
+	if query == nil {
+		query = NewModuleTagQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryModuleTagModels returns ModuleTag models that match the provided query.
+// If the query is empty or is nil, all ModuleTag's in the Store are returned.
+// The returned ModuleTag models are fully populated, incuding their contained
+// structures such as ValueTriple's (contrast with QueryModuleTagEntries above).
+func (o *Store) QueryModuleTagModels(query Query[*model.ModuleTagEntry]) ([]*model.ModuleTag, error) {
+	entries, err := o.QueryModuleTagEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.ModuleTag, len(entries))
+	for i, entry := range entries {
+		moduleTag, err := entry.ToModuleTag(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("module tag ID %d: %w", moduleTag.ID, err)
+		}
+
+		ret[i] = moduleTag
+	}
+
+	return ret, nil
+}
+
+// QueryCoMIDs returns comid.Comid's that match the provided query. Note that
+// these are reconstructed from Store content, and are not parsed form the
+// tokens that were originally added to the store.
+func (o *Store) QueryCoMIDs(query Query[*model.ModuleTagEntry]) ([]*comid.Comid, error) {
+	models, err := o.QueryModuleTagModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.Comid, len(models))
+	for i, model := range models {
+		c, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("module tag ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = c
+	}
+
+	return ret, nil
+}
+
+// QueryEntityModels returns Entity models that match the provided query.
+// If the query is empty or is nil, all Entity's in the Store are returned.
+func (o *Store) QueryEntityModels(query Query[*model.Entity]) ([]*model.Entity, error) {
+	if query == nil {
+		query = NewEntityQuery()
+	}
+
+	models, err := query.Run(o.Ctx, o.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, model := range models {
+		if err := model.Select(o.Ctx, o.DB); err != nil {
+			return nil, fmt.Errorf("entity ID %d: %w", model.ID, err)
+		}
+	}
+
+	return models, nil
+}
+
+// QueryCoRIMEntities returns corim.Entity's that match the provided query.
+// Note that these are reconstructed from Store content, and are not parsed
+// form the tokens that were originally added to the store.
+func (o *Store) QueryCoRIMEntities(query *EntityQuery) ([]*corim.Entity, error) {
+	if query == nil {
+		query = NewEntityQuery()
+	}
+
+	models, err := o.QueryEntityModels(query.OwnerType("manifest"))
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*corim.Entity, len(models))
+	for i, model := range models {
+		entity, err := model.ToCoRIMCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("entity ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = entity
+	}
+
+	return ret, nil
+}
+
+// QueryCoMIDEntities returns comid.Entity's that match the provided query.
+// Note that these are reconstructed from Store content, and are not parsed
+// form the tokens that were originally added to the store.
+func (o *Store) QueryCoMIDEntities(query *EntityQuery) ([]*comid.Entity, error) {
+	if query == nil {
+		query = NewEntityQuery()
+	}
+
+	models, err := o.QueryEntityModels(query.OwnerType("module_tag"))
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.Entity, len(models))
+	for i, model := range models {
+		entity, err := model.ToCoMIDCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("entity ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = entity
+	}
+
+	return ret, nil
+}
+
+// QueryEnvironmentModels returns Environment models that match the provided
+// query. If the query is empty or is nil, all Environment's in the Store are
+// returned.
+func (o *Store) QueryEnvironmentModels(query Query[*model.Environment]) ([]*model.Environment, error) {
+	if query == nil {
+		query = NewEnvironmentQuery(false)
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryEnvironments returns comid.Environment's that match the provided query.
+// Note that these are reconstructed from Store content, and are not parsed
+// form the tokens that were originally added to the store.
+func (o *Store) QueryEnvironments(query Query[*model.Environment]) ([]*comid.Environment, error) {
+	models, err := o.QueryEnvironmentModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.Environment, len(models))
+	for i, model := range models {
+		environment, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("environment ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = environment
+	}
+
+	return ret, nil
+}
+
+// QueryKeyTripleEntries returns a []*model.KeyTripleEntry with entries matching
+// the provided query. If the query is nil or is empty, all KeyTripleEntry's in
+// the store will be returned.
+func (o *Store) QueryKeyTripleEntries(query Query[*model.KeyTripleEntry]) ([]*model.KeyTripleEntry, error) {
+	if query == nil {
+		query = NewKeyTripleQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryKeyTripleModels returns a []*model.KeyTriple containing triples matching
+// the provided query. If the query is nil or is empty, all KeyTriple's in the
+// store will be returned.
+// Note: this will run additional queries to fully populate matching triples.
+// For queries expecting large results, it is recommended to, where possible,
+// use QueryKeyTripleEntries instead.
+func (o *Store) QueryKeyTripleModels(query Query[*model.KeyTripleEntry]) ([]*model.KeyTriple, error) {
+	entries, err := o.QueryKeyTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.KeyTriple, len(entries))
+	for i, entry := range entries {
+		triple, err := entry.ToTriple(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("key triple ID %d: %w", entry.TripleDbID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryKeyTriples returns a []*comid.KeyTriples with triples matching provided
+// query.
+func (o *Store) QueryKeyTriples(query Query[*model.KeyTripleEntry]) ([]*comid.KeyTriple, error) {
+	models, err := o.QueryKeyTripleModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.KeyTriple, len(models))
+	for i, model := range models {
+		triple, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("value truple with ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryValueTripleEntries returns a []*model.ValueTripleEntry with entries matching
+// the provided query. If the query is nil or is empty, all ValueTripleEntry's in
+// the store will be returned.
+func (o *Store) QueryValueTripleEntries(query Query[*model.ValueTripleEntry]) ([]*model.ValueTripleEntry, error) {
+	if query == nil {
+		query = NewValueTripleQuery()
+	}
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryValueTripleModels returns a []*model.ValueTriple containing triples matching
+// the provided query. If the query is nil or is empty, all ValueTriple's in the
+// store will be returned.
+// Note: this will run additional queries to fully populate matching triples.
+// For queries expecting large results, it is recommended to, where possible,
+// use QueryValueTripleEntries instead.
+func (o *Store) QueryValueTripleModels(query Query[*model.ValueTripleEntry]) ([]*model.ValueTriple, error) {
+	entries, err := o.QueryValueTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.ValueTriple, len(entries))
+	for i, entry := range entries {
+		triple, err := entry.ToTriple(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("entry for value triple with ID %d: %w", entry.TripleDbID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryValueTriples returns a []*comid.ValueTriples with triples matching
+// provided query.
+func (o *Store) QueryValueTriples(query Query[*model.ValueTripleEntry]) ([]*comid.ValueTriple, error) {
+	models, err := o.QueryValueTripleModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.ValueTriple, len(models))
+	for i, model := range models {
+		triple, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("value truple with ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = triple
 	}
 
 	return ret, nil
@@ -472,121 +719,4 @@ func HexExprForDialect(dialect, columnName string) string {
 		// unsupported dialect.
 		panic(fmt.Sprintf("unsupported dialect: %s", dialect))
 	}
-}
-
-// In addition to implementing the methods described by the interface, a
-// Triple's database table must also contain environment_id and module_id
-// fields.
-type Triple interface {
-	TripleType() string
-	DatabaseID() int64
-	Select(ctx context.Context, db bun.IDB) error
-}
-
-// GetTripleModels obtains tiples form the store that match the specified enviroment.
-// If exact is true, the enviroment mathching is exact, otherwise unset fields
-// in the argument enviroment match any value in the corresponding field in the
-// store environments. If activeOnly is true, only triples that are marked as
-// active are returned.
-func GetTripleModels[T Triple](
-	store *Store,
-	env *model.Environment,
-	label string,
-	exact bool,
-	activeOnly bool,
-) ([]T, error) { // nolint:dupl
-	var ret []T
-	query := store.DB.NewSelect().Model(&ret)
-
-	if activeOnly {
-		query.Where("is_active = true")
-	}
-
-	if env != nil && !env.IsEmpty() {
-		envIDs, err := store.FindEnvironmentIDs(env, exact)
-		if err != nil {
-			if errors.Is(err, ErrNoEnvMatch) {
-				return nil, ErrNoMatch
-			}
-
-			return nil, err
-		}
-
-		query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, envID := range envIDs {
-				q.WhereOr("environment_id = ?", envID)
-			}
-
-			return q
-		})
-	}
-
-	if label != "" {
-		modIDs, err := store.FindModuleTagIDsForLabel(label)
-		if err != nil {
-			return nil, err
-		}
-
-		query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			for _, modID := range modIDs {
-				q.WhereOr("module_id = ?", modID)
-			}
-
-			return q
-		})
-	} else if store.cfg.RequireLabel {
-		return nil, ErrNoLabel
-	}
-
-	if err := query.Scan(store.Ctx); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNoMatch
-		}
-
-		return nil, err
-	}
-
-	// fully load nested structures
-	for _, triple := range ret {
-		if err := triple.Select(store.Ctx, store.DB); err != nil {
-			return nil, fmt.Errorf("%s triple with ID %d: %w",
-				triple.TripleType(), triple.DatabaseID(), err)
-		}
-	}
-
-	return ret, nil
-}
-
-func modelToCoRIMValueTriples(modelTriples []*model.ValueTriple) ([]*comid.ValueTriple, error) {
-	ret := make([]*comid.ValueTriple, len(modelTriples))
-	for i, mt := range modelTriples {
-		ct, err := mt.ToCoRIM()
-		if err != nil {
-			return nil, fmt.Errorf(
-				"could not convert value triple DB ID %d: %w",
-				mt.DatabaseID(), err,
-			)
-		}
-
-		ret[i] = ct
-	}
-
-	return ret, nil
-}
-
-func modelToCoRIMKeyTriples(modelTriples []*model.KeyTriple) ([]*comid.KeyTriple, error) {
-	ret := make([]*comid.KeyTriple, len(modelTriples))
-	for i, mt := range modelTriples {
-		ct, err := mt.ToCoRIM()
-		if err != nil {
-			return nil, fmt.Errorf(
-				"could not convert value triple DB ID %d: %w",
-				mt.DatabaseID(), err,
-			)
-		}
-
-		ret[i] = ct
-	}
-
-	return ret, nil
 }

@@ -18,6 +18,9 @@ func TestDigest_Select(t *testing.T) {
 	digest.ID = 1
 	err = digest.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "no rows in result")
+	assert.Equal(t, digest.ID, digest.DbID())
+	assert.Equal(t, "digests", digest.TableName())
+	assert.True(t, digest.IsTable())
 }
 
 func TestDigest_Delete(t *testing.T) {

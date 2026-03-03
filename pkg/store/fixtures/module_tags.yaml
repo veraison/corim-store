@@ -1,0 +1,13 @@
+- model: ModuleTag
+  rows:
+    - id: 1
+      tag_id_type: string
+      tag_id: foo
+      tag_version: 7
+      language: en_GB
+      manifest_id: 1
+    - id: 2
+      tag_id_type: string
+      tag_id: bar
+      tag_version: 42
+      manifest_id: 2

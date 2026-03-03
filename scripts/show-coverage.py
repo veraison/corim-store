@@ -23,7 +23,7 @@ ignored_packages = [
 ]
 ignored_packages.extend(os.getenv('IGNORE_COVERAGE', '').strip().split())
 
-threshold = int(os.getenv('COVERAGE_THRESHOLD', '80').rstrip('%'))
+threshold = int(os.getenv('COVERAGE_THRESHOLD', '85').rstrip('%'))
 print(f'COVERAGE_THRESHOLD: {OK}{threshold}%{END}')
 
 result = subprocess.run(

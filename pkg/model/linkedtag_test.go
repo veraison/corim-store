@@ -58,6 +58,13 @@ func TestLinkedTag_Select(t *testing.T) {
 	assert.ErrorContains(t, err, "no rows in result")
 }
 
+func TestLinkedTag_model_methods(t *testing.T) {
+	lt := LinkedTag{ID: 1}
+	assert.Equal(t, lt.ID, lt.DbID())
+	assert.Equal(t, "linked_tags", lt.TableName())
+	assert.True(t, lt.IsTable())
+}
+
 func TestLinkedTag_Delete(t *testing.T) {
 	var tag LinkedTag
 	db := test.NewTestDB(t)

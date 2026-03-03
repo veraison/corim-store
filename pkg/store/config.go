@@ -14,7 +14,7 @@ type Config struct {
 	// HashAlg specifies the hashing algorithm used for computing manifest
 	// digests. This must be either md5, sha256, or sha512.
 	HashAlg string
-	// Insecure indicates whether insecure opearations are permitted.
+	// Insecure indicates whether insecure operations are permitted.
 	Insecure bool
 	// Force, when set, allows potentially unsafe operations such as
 	// overwriting existing values.

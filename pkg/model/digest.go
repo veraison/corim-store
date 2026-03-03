@@ -56,6 +56,18 @@ func NewDigest(alg_id uint64, val []byte) *Digest {
 	}
 }
 
+func (o *Digest) DbID() int64 {
+	return o.ID
+}
+
+func (o *Digest) TableName() string {
+	return "digests"
+}
+
+func (o *Digest) IsTable() bool {
+	return true
+}
+
 func (o *Digest) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Exec(ctx)
 	return err

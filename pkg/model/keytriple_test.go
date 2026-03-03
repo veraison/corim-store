@@ -170,6 +170,9 @@ func TestKeyTriple_Select(t *testing.T) {
 	kt.ID = 1
 	err = kt.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "no rows in result")
+	assert.Equal(t, kt.ID, kt.DbID())
+	assert.Equal(t, "key_triples", kt.TableName())
+	assert.True(t, kt.IsTable())
 }
 
 func TestKeyTriple_Delete(t *testing.T) {

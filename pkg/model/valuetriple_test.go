@@ -157,3 +157,10 @@ func TestValueTriple_DatabaseID(t *testing.T) {
 	vt.ID = 1
 	assert.Equal(t, int64(1), vt.DatabaseID())
 }
+
+func TestValueTriple_model_methods(t *testing.T) {
+	val := ValueTriple{ID: 1}
+	assert.Equal(t, val.ID, val.DbID())
+	assert.Equal(t, "value_triples", val.TableName())
+	assert.True(t, val.IsTable())
+}

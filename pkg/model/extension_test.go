@@ -81,6 +81,9 @@ func TestExtensionValue_Select(t *testing.T) {
 	ev.ID = 1
 	err = ev.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "no rows in result")
+	assert.Equal(t, ev.ID, ev.DbID())
+	assert.Equal(t, "extensions", ev.TableName())
+	assert.True(t, ev.IsTable())
 }
 
 func TestExtensionValue_Delete(t *testing.T) {

@@ -1,16 +1,21 @@
 //go:build test
 
+//coverage:ignore file
+
 package db
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dbfixture"
 )
 
 var defaultTestDbFile = ":memory:"
@@ -33,6 +38,29 @@ func NewEmptyTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 
 	return testDB
+}
+
+func LoadTestFixtures(
+	ctx context.Context,
+	db *bun.DB,
+	fixtures map[string][]byte,
+	opts ...dbfixture.FixtureOption,
+) error {
+	names := make([]string, 0, len(fixtures))
+	mapFS := make(fstest.MapFS)
+	for name, bytes := range fixtures {
+		names = append(names, name)
+		mapFS[name] = &fstest.MapFile{Data: bytes}
+	}
+
+	fixture := dbfixture.New(db, opts...)
+	for _, name := range names {
+		if err := fixture.Load(ctx, mapFS, name); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+
+	return nil
 }
 
 var trace bool

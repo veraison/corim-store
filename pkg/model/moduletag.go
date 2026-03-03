@@ -57,6 +57,18 @@ func SelectModuleTag(ctx context.Context, db bun.IDB, id int64) (*ModuleTag, err
 	return &ret, nil
 }
 
+func (o *ModuleTag) DbID() int64 {
+	return o.ID
+}
+
+func (o *ModuleTag) TableName() string {
+	return "module_tags"
+}
+
+func (o *ModuleTag) IsTable() bool {
+	return true
+}
+
 func (o *ModuleTag) FromCoRIM(origin *comid.Comid) error {
 	var err error
 

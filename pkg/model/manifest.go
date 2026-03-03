@@ -19,6 +19,11 @@ type ManifestIDType string
 
 type ProfileType string
 
+const (
+	OIDProfile ProfileType = "oid"
+	URIProfile ProfileType = "uri"
+)
+
 type Manifest struct {
 	bun.BaseModel `bun:"table:manifests,alias:man"`
 
@@ -66,6 +71,18 @@ func SelectManifest(ctx context.Context, db bun.IDB, id int64) (*Manifest, error
 	return &ret, nil
 }
 
+func (o *Manifest) DbID() int64 {
+	return o.ID
+}
+
+func (o *Manifest) TableName() string {
+	return "manifests"
+}
+
+func (o *Manifest) IsTable() bool {
+	return true
+}
+
 func (o *Manifest) FromCoRIM(origin *corim.UnsignedCorim) error {
 	var err error
 
@@ -91,9 +108,9 @@ func (o *Manifest) FromCoRIM(origin *corim.UnsignedCorim) error {
 		}
 
 		if origin.Profile.IsOID() { // nolint:gocritic
-			o.ProfileType = "oid"
+			o.ProfileType = OIDProfile
 		} else if origin.Profile.IsURI() {
-			o.ProfileType = "uri"
+			o.ProfileType = URIProfile
 		} else {
 			return fmt.Errorf("invalid profile in origin: %+v", origin.Profile)
 		}

@@ -1,0 +1,24 @@
+- model: Manifest
+  rows:
+    - id: 1
+      manifest_id_type: string
+      manifest_id: foo
+      time_added: 2026-04-24T10:01:49+01:00
+      profile_type: uri
+      profile: bar
+      label: baz
+      digest: [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+      ]
+      not_before: 2026-04-24T00:00:49+00:00
+      not_after: 2999-04-24T00:00:49+00:00
+    - id: 2
+      manifest_id_type: uuid
+      manifest_id: 03c5e92b-2950-440b-93f0-21ac612a40bd
+      time_added: 2026-01-01T00:00:00+01:00
+      profile_type: uri
+      profile: http://example.com
+      label: qux

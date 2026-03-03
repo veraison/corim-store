@@ -97,6 +97,18 @@ func SelectKeyTriple(ctx context.Context, db bun.IDB, id int64) (*KeyTriple, err
 	return &ret, nil
 }
 
+func (o *KeyTriple) DbID() int64 {
+	return o.ID
+}
+
+func (o *KeyTriple) TableName() string {
+	return "key_triples"
+}
+
+func (o *KeyTriple) IsTable() bool {
+	return true
+}
+
 func (o *KeyTriple) FromCoRIM(origin *comid.KeyTriple) error {
 	var env Environment
 

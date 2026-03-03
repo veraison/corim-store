@@ -417,6 +417,20 @@ func TestMeasurement_ToCoRIM_nok(t *testing.T) {
 	}
 }
 
+func TestMeasurement_model_methods(t *testing.T) {
+	val := Measurement{ID: 1}
+	assert.Equal(t, val.ID, val.DbID())
+	assert.Equal(t, "measurements", val.TableName())
+	assert.True(t, val.IsTable())
+}
+
+func TestMeasurementValueEntry_model_methods(t *testing.T) {
+	val := MeasurementValueEntry{ID: 1}
+	assert.Equal(t, val.ID, val.DbID())
+	assert.Equal(t, "measurement_value_entries", val.TableName())
+	assert.True(t, val.IsTable())
+}
+
 func TestMeasurementValueEntry_Delete(t *testing.T) {
 	var mve MeasurementValueEntry
 	db := test.NewTestDB(t)

@@ -56,6 +56,18 @@ func SelectEnvironment(ctx context.Context, db bun.IDB, id int64) (*Environment,
 	return &ret, nil
 }
 
+func (o *Environment) DbID() int64 {
+	return o.ID
+}
+
+func (o *Environment) TableName() string {
+	return "environments"
+}
+
+func (o *Environment) IsTable() bool {
+	return true
+}
+
 func (o *Environment) FromCoRIM(origin *comid.Environment) error {
 	var err error
 

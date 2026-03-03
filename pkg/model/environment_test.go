@@ -390,6 +390,9 @@ func TestEnvironment_Select(t *testing.T) {
 	env.ID = 1
 	err = env.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "no rows in result")
+	assert.Equal(t, env.ID, env.DbID())
+	assert.Equal(t, "environments", env.TableName())
+	assert.True(t, env.IsTable())
 }
 
 func TestEnvironment_DeleteIfOrphaned(t *testing.T) {

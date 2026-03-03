@@ -1,0 +1,24 @@
+- model: ValueTriple
+  rows:
+    - id: 1
+      environment_id: 1
+      type: reference
+      is_active: true
+      module_id: 1
+    - id: 2
+      environment_id: 2
+      type: endorsement
+      is_active: false
+      module_id: 2
+- model: KeyTriple
+  rows:
+    - id: 1
+      environment_id: 3
+      type: attest
+      is_active: true
+      module_id: 1
+    - id: 2
+      environment_id: 4
+      type: identity
+      is_active: false
+      module_id: 2
