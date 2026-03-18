@@ -12,14 +12,16 @@ go install github.com/veraison/corim-store/cmd/corim-store@latest
 ## API
 
 ```go
+package main
+
 import (
     "context"
     "fmt"
     "log"
     "os"
 
-	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim-store/pkg/store"
+	"github.com/veraison/corim/comid"
 )
 
 func main() {
@@ -38,32 +40,34 @@ func main() {
 
     // Read a CoRIM and add it to the store.
 
-    corimBytes, err := os.ReadFile("sample/corim/unsigned-cca-ref-plat.cbor")
+    corimBytes, err := os.ReadFile("sample/corim/unsigned-cca-ta.cbor")
     if err != nil {
         log.Fatal(err)
     }
 
-    if err := store.AddBytes(corimBytes, "cca"); err != nil {
+    if err := store.AddBytes(corimBytes, "cca", true); err != nil {
         log.Fatal(err)
     }
 
     // Query the store for a trust anchor associated with an instance ID.
 
-    env = model.Environment {
-        InstanceBytes: []byte{
-            0x01, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
-            0x00, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
-            0x08, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
-            0x10, 0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19,
-            0x18,
-    }
+	instanceBytes, err := comid.NewUEIDInstance([]byte{
+		0x01, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+		0x00, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
+		0x08, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
+		0x10, 0x1f, 0x1e, 0x1d, 0x1c, 0x1b, 0x1a, 0x19,
+		0x18,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    keyTriples, err := store.GetKeyTriples(&env, "cca", false)
-    if err != nil {
-        log.Fatal(err)
-    }
+	keyTriples, err := store.GetKeyTriples(&comid.Environment{Instance: instanceBytes}, "cca", false)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    fmt.Printf("key: %s\n", string(keyTriples[0].KeyList[0].KeyBytes))
+	fmt.Printf("key: %s\n", string(keyTriples[0].VerifKeys.String()))
 }
 ```
 
