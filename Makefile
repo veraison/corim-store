@@ -4,12 +4,17 @@ GOFMT ?= gofmt
 DLV ?= dlv
 GREP ?= grep
 AWK ?= awk
-GOLINT ?= golangci-lint
+
+GOLINT_ARGS ?= run --build-tags test --timeout=3m -E dupl -E gocritic -E staticcheck -E prealloc
+
+TOPDIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
 GIT_HASH = $(shell git rev-parse --revs-only --short HEAD 2>/dev/null)
 BUILD_ARGS = -ldflags "-X github.com/veraison/corim-store/pkg/build.Build=$(GIT_HASH)"
 
-GOLINT_ARGS ?= run --build-tags test --timeout=3m -E dupl -E gocritic -E staticcheck -E prealloc
+GOLINT_VERSION = v1.64.8
+GOLINT = $(TOPDIR)/tools-bin/golangci-lint
+GOLINT_STAMP = $(TOPDIR)/tools-bin/golangci-lint-$(GOLINT_VERSION).stamp
 
 ifeq ($(VERBOSE),1)
 	TEST_ARGS = -v -args -trace
@@ -35,8 +40,15 @@ integ-test:
 fmt format gofmt: */*/*.go */*/*/*.go
 	$(GOFMT) -w */*/*.go */*/*/*.go
 
+$(GOLINT): $(GOLINT_STAMP)
+
+$(GOLINT_STAMP):
+	mkdir -p $(dir $(GOLINT))
+	touch $(GOLINT_STAMP)
+	GOBIN=$(dir $(GOLINT)) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLINT_VERSION)
+
 .PHONY: lint
-lint:
+lint: $(GOLINT)
 	$(GOLINT) $(GOLINT_ARGS)
 
 .PHONY: cover coverage

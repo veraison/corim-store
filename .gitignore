@@ -2,3 +2,4 @@
 coverage.out
 store.db
 __debug_bin*
+tools-bin/*
