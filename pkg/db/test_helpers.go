@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ import (
 var defaultTestDbFile = ":memory:"
 
 func NewEmptyTestDB(t *testing.T) *bun.DB {
-	testDbFile := os.Getenv("TEST_DB_FILE")
+	testDbFile := strings.ReplaceAll(os.Getenv("TEST_DB_FILE"), "@test@", t.Name())
 	if testDbFile == "" {
 		testDbFile = defaultTestDbFile
 	}

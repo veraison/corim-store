@@ -86,7 +86,8 @@ Targets:
     test:
         Run unit tests. Use VERBOSE=1 for SQL traces. Set TEST_DB_FILE to
         specify the path for the sqlite DB file to be used for tests (by default
-        in-memory DB is used).
+        in-memory DB is used). Placeholder sequence @test@ inside TEST_DB_FILE
+	will be replace by the name of the test.
     integ-test:
         Run integration tests. These rely on a Docker container running database
         servers.
