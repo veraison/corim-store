@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -54,4 +55,26 @@ func Open(cfg *Config) (*bun.DB, error) {
 	}
 
 	return ret, nil
+}
+
+// ExecTx executes provided SQL statements inside a single transaction using
+// the provided Context and DB connection.
+func ExecTx(ctx context.Context, db *bun.DB, opts *sql.TxOptions, statements []string) error {
+	tx, err := db.BeginTx(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
