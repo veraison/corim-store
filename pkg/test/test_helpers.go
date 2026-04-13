@@ -4,9 +4,6 @@ package test
 
 import (
 	"context"
-	"flag"
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,30 +13,13 @@ import (
 	"github.com/veraison/corim-store/pkg/migrations"
 )
 
-var defaultTestDbFile = ":memory:"
-
 func NewTestDB(t *testing.T) *bun.DB {
-	testDbFile := os.Getenv("TEST_DB_FILE")
-	if testDbFile == "" {
-		testDbFile = defaultTestDbFile
-	}
-
-	if testDbFile != ":memory:" {
-		_ = os.Remove(testDbFile)
-	}
-
-	testDB, err := db.Open(&db.Config{
-		DBMS:     "sqlite",
-		DSN:      fmt.Sprintf("file:%s", testDbFile),
-		TraceSQL: trace,
-	})
-	require.NoError(t, err)
-
+	testDB := db.NewEmptyTestDB(t)
 	ctx := context.Background()
 
 	migrator := migrate.NewMigrator(testDB, migrations.Migrations)
 
-	err = migrator.Init(ctx)
+	err := migrator.Init(ctx)
 	require.NoError(t, err)
 
 	err = migrator.Lock(ctx)
@@ -50,10 +30,4 @@ func NewTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 
 	return testDB
-}
-
-var trace bool
-
-func init() {
-	flag.BoolVar(&trace, "trace", false, "enable SQL statement tracing")
 }
