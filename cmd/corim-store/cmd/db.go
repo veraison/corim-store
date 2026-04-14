@@ -210,6 +210,9 @@ var loadFixturesCmd = &cobra.Command{
 		for _, path := range args {
 			fmt.Printf("Loading from %s...\n", path)
 			dir, file := filepath.Split(path)
+			if dir == "" {
+				dir = "."
+			}
 			err = fixture.Load(ctx, os.DirFS(dir), file)
 			CheckErr(err)
 		}
