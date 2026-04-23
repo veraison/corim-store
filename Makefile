@@ -1,20 +1,21 @@
 GIT ?= git
 GO ?= go
 GOFMT ?= gofmt
-DLV ?= dlv
-GREP ?= grep
-AWK ?= awk
 
 GOLINT_ARGS ?= run --build-tags test --timeout=3m -E dupl -E gocritic -E staticcheck -E prealloc
 
 TOPDIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
-GIT_HASH = $(shell git rev-parse --revs-only --short HEAD 2>/dev/null)
+GIT_HASH = $(shell $(GIT) rev-parse --revs-only --short HEAD 2>/dev/null)
 BUILD_ARGS = -ldflags "-X github.com/veraison/corim-store/pkg/build.Build=$(GIT_HASH)"
 
 GOLINT_VERSION = v1.64.8
 GOLINT = $(TOPDIR)/tools-bin/golangci-lint
 GOLINT_STAMP = $(TOPDIR)/tools-bin/golangci-lint-$(GOLINT_VERSION).stamp
+
+GOIGNORECOV_VERSION = v0.3.0
+GOIGNORECOV = $(TOPDIR)/tools-bin/go-ignore-cov
+GOIGNORECOV_STAMP = $(TOPDIR)/tools-bin/go-ignore-cov-$(GOIGNORECOV_VERSION).stamp
 
 ifeq ($(VERBOSE),1)
 	TEST_ARGS = -v -args -trace
@@ -45,15 +46,24 @@ $(GOLINT): $(GOLINT_STAMP)
 $(GOLINT_STAMP):
 	mkdir -p $(dir $(GOLINT))
 	touch $(GOLINT_STAMP)
-	GOBIN=$(dir $(GOLINT)) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLINT_VERSION)
+	GOBIN=$(dir $(GOLINT)) $(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLINT_VERSION)
+
+$(GOIGNORECOV): $(GOIGNORECOV_STAMP)
+
+$(GOIGNORECOV_STAMP):
+	mkdir -p $(dir $(GOLINT))
+	touch $(GOIGNORECOV_STAMP)
+	GOBIN=$(dir $(GOIGNORECOV)) $(GO) install github.com/hexira/go-ignore-cov@$(GOIGNORECOV_VERSION)
 
 .PHONY: lint
 lint: $(GOLINT)
 	$(GOLINT) $(GOLINT_ARGS)
 
 .PHONY: cover coverage
-cover coverage coverage.out:
-	@scripts/coverage.sh
+cover coverage coverage.out: $(GOIGNORECOV)
+	@$(GO) test -tags=test $(TOPDIR)/... -coverprofile=$(TOPDIR)/coverage.out 1>/dev/null
+	@$(GOIGNORECOV) --file $(TOPDIR)/coverage.out
+	@$(TOPDIR)/scripts/show-coverage.py $(TOPDIR)/coverage.out
 
 .PHONY: cover-report coverage-report report
 cover-report coverage-report report: coverage.out
