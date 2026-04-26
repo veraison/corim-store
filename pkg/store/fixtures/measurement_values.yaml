@@ -16,8 +16,8 @@
       value_text: foo
       measurement_id: 1
     - id: 3
-      code_point: 2 # svn
-      value_type: int
+      code_point: 1 # svn
+      value_type: exact-value
       value_int: 42
       measurement_id: 1
     - id: 4
