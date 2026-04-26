@@ -12,6 +12,7 @@ import (
 	"github.com/uptrace/bun/schema"
 	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim/comid"
+	"github.com/veraison/eat"
 )
 
 // Query is the interface implemented by all objects that can be used to query
@@ -265,6 +266,11 @@ func (o *ManifestQuery) ProfileValue(value ...string) *ManifestQuery {
 
 func (o *ManifestQuery) Profile(typ model.ProfileType, value string) *ManifestQuery {
 	o.ManifestCommonQuery.Profile(typ, value)
+	return o
+}
+
+func (o *ManifestQuery) ProfileFromEAT(value ...*eat.Profile) *ManifestQuery {
+	o.ManifestCommonQuery.ProfileFromEAT(value...)
 	return o
 }
 
@@ -544,6 +550,11 @@ func (o *ModuleTagQuery) ProfileValue(value ...string) *ModuleTagQuery {
 
 func (o *ModuleTagQuery) Profile(typ model.ProfileType, value string) *ModuleTagQuery {
 	o.ManifestCommonQuery.Profile(typ, value)
+	return o
+}
+
+func (o *ModuleTagQuery) ProfileFromEAT(value ...*eat.Profile) *ModuleTagQuery {
+	o.ManifestCommonQuery.ProfileFromEAT(value...)
 	return o
 }
 
@@ -1144,6 +1155,11 @@ func (o *TripleQuery[T, TT]) ProfileValue(value ...string) *TripleQuery[T, TT] {
 
 func (o *TripleQuery[T, TT]) Profile(typ model.ProfileType, value string) *TripleQuery[T, TT] {
 	o.ManifestCommonQuery.Profile(typ, value)
+	return o
+}
+
+func (o *TripleQuery[T, TT]) ProfileFromEAT(value ...*eat.Profile) *TripleQuery[T, TT] {
+	o.ManifestCommonQuery.ProfileFromEAT(value...)
 	return o
 }
 
@@ -2420,6 +2436,24 @@ func (o *ManifestCommonQuery) ProfileValue(value ...string) *ManifestCommonQuery
 
 func (o *ManifestCommonQuery) Profile(typ model.ProfileType, value string) *ManifestCommonQuery {
 	o.profiles = append(o.profiles, &profileQueryEntry{typ, value})
+	return o
+}
+
+func (o *ManifestCommonQuery) ProfileFromEAT(values ...*eat.Profile) *ManifestCommonQuery {
+	for _, profile := range values {
+		value, err := profile.Get()
+		if err != nil {
+			panic(err)
+		}
+
+		typ := model.URIProfile
+		if profile.IsOID() {
+			typ = model.OIDProfile
+		}
+
+		o.profiles = append(o.profiles, &profileQueryEntry{typ, value})
+	}
+
 	return o
 }
 

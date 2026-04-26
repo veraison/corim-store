@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim/comid"
+	"github.com/veraison/eat"
 )
 
 func TestDigestQuery(t *testing.T) {
@@ -226,7 +228,7 @@ func TestMeasurementValueQuery(t *testing.T) {
 	query = NewMeasurementValueQuery().ValueType("int", "string")
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 5)
+	assert.Len(t, result, 4)
 
 	query = NewMeasurementValueQuery().Value("string", "foo")
 	result, err = query.Run(ctx, db)
@@ -271,7 +273,7 @@ func TestMeasurementValueQuery(t *testing.T) {
 	assert.Len(t, result, 1)
 
 	query = NewMeasurementValueQuery().
-		CodePoint(2).
+		CodePoint(1).
 		ValueInt(valueInt)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
@@ -289,8 +291,8 @@ func TestMeasurementValueQuery(t *testing.T) {
 
 	query = NewMeasurementValueQuery().
 		UpdateFromModel(&model.MeasurementValueEntry{
-			CodePoint: 2,
-			ValueType: "int",
+			CodePoint: 1,
+			ValueType: "exact-value",
 			ValueInt:  &valueInt,
 		})
 	result, err = query.Run(ctx, db)
@@ -413,7 +415,7 @@ func TestMeasurementQuery(t *testing.T) {
 	assert.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, *result[0].KeyBytes)
 
 	query = NewMeasurementQuery().MVal(func(mvq *MeasurementValueQuery) {
-		mvq.CodePoint(2)
+		mvq.CodePoint(1)
 	})
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
@@ -531,7 +533,7 @@ func TestManifestQuery(t *testing.T) {
 
 	result, err := query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	query = NewManifestQuery().ID(1, 2)
 	result, err = query.Run(ctx, db)
@@ -542,37 +544,37 @@ func TestManifestQuery(t *testing.T) {
 		ValidOn(time.Now())
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	query = NewManifestQuery().
 		ValidOn(time.Date(2025, time.January, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewManifestQuery().
 		ValidBefore(time.Date(2027, time.January, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	query = NewManifestQuery().
 		ValidBefore(time.Date(2000, time.January, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewManifestQuery().
 		ValidAfter(time.Date(2027, time.January, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	query = NewManifestQuery().
 		ValidAfter(time.Date(3000, time.January, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewManifestQuery().
 		ValidBetween(
@@ -581,19 +583,19 @@ func TestManifestQuery(t *testing.T) {
 		)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewManifestQuery().
 		AddedBefore(time.Date(2026, time.February, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewManifestQuery().
 		AddedAfter(time.Date(2024, time.February, 01, 00, 00, 00, 00, time.UTC))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	query = NewManifestQuery().
 		AddedAfter(time.Date(2027, time.February, 01, 00, 00, 00, 00, time.UTC))
@@ -608,7 +610,7 @@ func TestManifestQuery(t *testing.T) {
 		)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewManifestQuery().
 		AddedBetween(
@@ -617,13 +619,13 @@ func TestManifestQuery(t *testing.T) {
 		)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	bytes := comid.MustHexDecode(t, "0001020304050607000102030405060700010203040506070001020304050607")
 
 	query = NewManifestQuery().
 		Label("baz").
-		Profile(model.URIProfile, "bar").
+		Profile(model.URIProfile, "http://example.com").
 		ManifestID(model.StringTagID, "foo").
 		Digest(bytes).
 		Entity(func(eq *EntityQuery) {
@@ -637,13 +639,23 @@ func TestManifestQuery(t *testing.T) {
 	assert.Len(t, result, 1)
 
 	query = NewManifestQuery().
-		ProfileType(model.URIProfile).
-		ProfileValue("http://example.com").
+		ProfileType(model.OIDProfile).
+		ProfileValue("1.2.3.4").
 		ManifestIDType(model.UUIDTagID).
 		ManifestIDValue("03c5e92b-2950-440b-93f0-21ac612a40bd")
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
+
+	oidProfile, err := eat.NewProfile("1.2.3.4")
+	require.NoError(t, err)
+	uriProfile, err := eat.NewProfile("http://acme.com")
+	require.NoError(t, err)
+
+	query = NewManifestQuery().ProfileFromEAT(oidProfile, uriProfile)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
 }
 
 func TestLinkedTagQuery(t *testing.T) {
@@ -711,7 +723,7 @@ func TestModuleTagQuery(t *testing.T) {
 		Language("en_GB").
 		ManifestDbID(1).
 		Label("baz").
-		Profile(model.URIProfile, "bar").
+		Profile(model.URIProfile, "http://example.com").
 		ManifestID(model.StringTagID, "foo").
 		LinkedTag(func(ltq *LinkedTagQuery) {
 			ltq.LinkedTagIDValue("zot")
@@ -726,7 +738,7 @@ func TestModuleTagQuery(t *testing.T) {
 
 	query = NewModuleTagQuery().
 		ProfileType(model.URIProfile).
-		ProfileValue("bar").
+		ProfileValue("http://example.com").
 		ModuleTagID(model.StringTagID, "foo").
 		ValidOn(time.Now())
 	result, err = query.Run(ctx, db)
@@ -771,6 +783,14 @@ func TestModuleTagQuery(t *testing.T) {
 			time.Date(2024, time.January, 01, 00, 00, 00, 00, time.UTC),
 			time.Date(2026, time.February, 01, 00, 00, 00, 00, time.UTC),
 		)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	oidProfile, err := eat.NewProfile("1.2.3.4")
+	require.NoError(t, err)
+
+	query = NewModuleTagQuery().ProfileFromEAT(oidProfile)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
@@ -823,19 +843,19 @@ func TestEnvironmentQuery(t *testing.T) {
 	assert.Len(t, result, 2)
 
 	query = NewEnvironmentQuery(false).
-		ClassIDBytes(comid.MustHexDecode(t, "00010203040506070001020304050607"))
+		ClassIDBytes(comid.MustHexDecode(t, "00010203040506078001020304050607"))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 
 	query = NewEnvironmentQuery(true).
-		ClassIDBytes(comid.MustHexDecode(t, "00010203040506070001020304050607"))
+		ClassIDBytes(comid.MustHexDecode(t, "00010203040506070801020304050607"))
 	result, err = query.Run(ctx, db)
 	assert.ErrorIs(t, err, ErrNoMatch)
 	assert.Len(t, result, 0)
 
 	query = NewEnvironmentQuery(true).
-		ClassIDBytes(comid.MustHexDecode(t, "00010203040506070001020304050607")).
+		ClassIDBytes(comid.MustHexDecode(t, "00010203040506078001020304050607")).
 		InstanceBytes(comid.MustHexDecode(t, "0110111213141516171011121314151617"))
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
@@ -902,7 +922,7 @@ func TestKeyTripleQuery(t *testing.T) {
 		ModuleTagVersion(7).
 		Language("en_GB").
 		ProfileType(model.URIProfile).
-		ProfileValue("bar").
+		ProfileValue("http://example.com").
 		ClassType("oid").
 		ClassBytes(comid.MustHexDecode(t, "0001020304")).
 		Vendor("baz").
@@ -910,7 +930,7 @@ func TestKeyTripleQuery(t *testing.T) {
 		Layer(2).
 		Index(1).
 		InstanceType("uuid").
-		InstanceBytes(comid.MustHexDecode(t, "10111213141516171011121314151617")).
+		InstanceBytes(comid.MustHexDecode(t, "10111213141516178011121314151617")).
 		GroupType("bytes").
 		GroupBytes(bytes2).
 		CryptoKey(func(e *CryptoKeyQuery) {
@@ -926,7 +946,7 @@ func TestKeyTripleQuery(t *testing.T) {
 	query = NewKeyTripleQuery().
 		ManifestID(model.StringTagID, "foo").
 		ModuleTagID(model.StringTagID, "foo").
-		ProfileType(model.URIProfile, "bar").
+		Profile(model.URIProfile, "http://example.com").
 		Environment(func(e *EnvironmentQuery) {
 			e.Vendor("baz")
 		}).
@@ -1018,7 +1038,7 @@ func TestValueTripleQuery(t *testing.T) {
 		ModuleTagIDType(model.StringTagID).
 		ModuleTagIDValue("foo").
 		ProfileType(model.URIProfile).
-		ProfileValue("bar").
+		ProfileValue("http://example.com").
 		ClassType("bytes").
 		ClassBytes(bytes0).
 		Vendor("foo").
@@ -1093,6 +1113,14 @@ func TestValueTripleQuery(t *testing.T) {
 				mvq.CodePoint(8).ValueText("12345")
 			})
 		})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	oidProfile, err := eat.NewProfile("1.2.3.4")
+	require.NoError(t, err)
+
+	query = NewValueTripleQuery().ProfileFromEAT(oidProfile)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
