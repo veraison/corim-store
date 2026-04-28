@@ -628,6 +628,70 @@ func (o *Store) QueryValueTriples(query Query[*model.ValueTripleEntry]) ([]*comi
 	return ret, nil
 }
 
+// SetKeyTriplesActive sets the active status of key triples matching the
+// specified query to the specified value. On success a slice of entries
+// corresponding to the updated triples is returned. The IsActive field of
+// these entries is set to their old value prior to the update.
+func (o *Store) SetKeyTriplesActive(
+	query Query[*model.KeyTripleEntry],
+	value bool,
+) ([]*model.KeyTripleEntry, error) {
+	entries, err := o.QueryKeyTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.DB.NewUpdate().
+		Table("key_triples").
+		Set("is_active = ?", value).
+		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+			for _, entry := range entries {
+				q.WhereOr("id = ?", entry.TripleDbID)
+			}
+
+			return q
+		}).
+		Exec(o.Ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+// SetValueTriplesActive sets the active status of value triples matching the
+// specified query to the specified value. On success a slice of entries
+// corresponding to the updated triples is returned. The IsActive field of
+// these entries is set to their old value prior to the update.
+func (o *Store) SetValueTriplesActive(
+	query Query[*model.ValueTripleEntry],
+	value bool,
+) ([]*model.ValueTripleEntry, error) {
+	entries, err := o.QueryValueTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.DB.NewUpdate().
+		Table("value_triples").
+		Set("is_active = ?", value).
+		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+			for _, entry := range entries {
+				q.WhereOr("id = ?", entry.TripleDbID)
+			}
+
+			return q
+		}).
+		Exec(o.Ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
 // Clear removes all data from store (effectively truncating the tables
 // containing CoRIM/CoMID data).
 func (o *Store) Clear() error {
