@@ -164,8 +164,7 @@ can be specified with `--config` command line option.
 The following settings are accepted:
 
 - `dbms`: The DBMS backing the store. Accepted values are `sqlite`, `postgres`,
-  and `mysql` (TODO: currently, only `sqlite` is supported). The default is
-  `sqlite`.
+  and `mysql` The default is `sqlite`.
 - `dsn`: The Data Source Name. This is the string used to connect to the
   database. The format depends on the DBMS (search the DBMS documentation for
   "data source name" or "connection string"). The default is
