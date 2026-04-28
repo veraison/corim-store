@@ -477,6 +477,40 @@ func TestStore_QueryEnvironments(t *testing.T) {
 	)
 }
 
+func TestStore_set_active(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"manifests.yaml":   manifestsFixture,
+		"module_tags.yaml": moduleTagsFixture,
+		"triples.yaml":     triplesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+
+	keyEntries, err := store.SetKeyTriplesActive(NewKeyTripleQuery(), true)
+	assert.NoError(t, err)
+	assert.Len(t, keyEntries, 2)
+	assert.Equal(t, int64(2), keyEntries[1].TripleDbID)
+	assert.False(t, keyEntries[1].IsActive)
+
+	keyTriple := model.KeyTriple{ID: 2}
+	err = keyTriple.Select(store.Ctx, store.DB)
+	assert.NoError(t, err)
+	assert.True(t, keyTriple.IsActive)
+
+	valueEntries, err := store.SetValueTriplesActive(NewValueTripleQuery(), true)
+	assert.NoError(t, err)
+	assert.Len(t, valueEntries, 2)
+	assert.Equal(t, int64(2), valueEntries[1].TripleDbID)
+	assert.False(t, valueEntries[1].IsActive)
+
+	valueTriple := model.ValueTriple{ID: 2}
+	err = valueTriple.Select(store.Ctx, store.DB)
+	assert.NoError(t, err)
+	assert.True(t, valueTriple.IsActive)
+}
+
 func newStoreWithSampleCoRIMs(t *testing.T) *Store {
 	db := test.NewTestDB(t)
 	store, err := OpenWithDB(context.Background(), db)
