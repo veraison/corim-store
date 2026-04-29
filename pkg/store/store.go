@@ -17,6 +17,7 @@ import (
 	"github.com/veraison/corim-store/pkg/db"
 	"github.com/veraison/corim-store/pkg/migrations"
 	"github.com/veraison/corim-store/pkg/model"
+	"github.com/veraison/corim-store/pkg/util"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
 )
@@ -139,8 +140,7 @@ func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 
 	digest := o.Digest(buf)
 
-	if buf[0] == 0xd2 { // nolint:gocritic
-		// tag 18 -> COSE_Sign1 -> signed corim
+	if util.IsSignedCoRIM(buf) { // nolint:gocritic
 		if !o.cfg.Insecure {
 			return errors.New(
 				"signed CoRIM validation not supported (set insecure config to add unvalidated)",
@@ -153,8 +153,7 @@ func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 		}
 
 		return o.AddCoRIM(&signed.UnsignedCorim, digest, label, activate)
-	} else if slices.Equal(buf[:3], []byte{0xd9, 0x01, 0xf5}) {
-		// tag 501 -> unsigned corim
+	} else if util.IsUnsignedCoRIM(buf) {
 		var unsigned corim.UnsignedCorim
 		if err := unsigned.FromCBOR(buf); err != nil {
 			return err

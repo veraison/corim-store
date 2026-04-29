@@ -1,6 +1,7 @@
 package util
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,4 +41,18 @@ func TestNormalize(t *testing.T) {
 			assert.Equal(t, tc.after, actualAfter)
 		})
 	}
+}
+
+func TestIsXXXCoRIM(t *testing.T) {
+	signed, err := os.ReadFile("../../sample/corim/signed-cca-ref-plat.cose")
+	assert.NoError(t, err)
+	unsigned, err := os.ReadFile("../../sample/corim/unsigned-cca-ref-plat.cbor")
+	assert.NoError(t, err)
+
+	assert.True(t, IsSignedCoRIM(signed))
+	assert.False(t, IsSignedCoRIM(unsigned))
+	assert.False(t, IsUnsignedCoRIM(signed))
+	assert.True(t, IsUnsignedCoRIM(unsigned))
+	assert.False(t, IsSignedCoRIM([]byte{}))
+	assert.False(t, IsUnsignedCoRIM([]byte{}))
 }
