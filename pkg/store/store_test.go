@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
@@ -80,7 +81,7 @@ func TestStore_initialization(t *testing.T) {
 	testStore, err := Open(context.Background(), NewConfig("sqlite", "file::memory:?cache=shared"))
 	require.NoError(t, err)
 
-	_, err = testStore.DB.DB.Exec("select * from measurements")
+	_, err = testStore.DB.(*bun.DB).DB.Exec("select * from measurements")
 	assert.ErrorContains(t, err, "no such table")
 
 	err = testStore.Init()
@@ -89,7 +90,7 @@ func TestStore_initialization(t *testing.T) {
 	err = testStore.Migrate()
 	require.NoError(t, err)
 
-	_, err = testStore.DB.DB.Exec("select * from measurements")
+	_, err = testStore.DB.(*bun.DB).DB.Exec("select * from measurements")
 	assert.NoError(t, err)
 }
 
@@ -509,6 +510,77 @@ func TestStore_set_active(t *testing.T) {
 	err = valueTriple.Select(store.Ctx, store.DB)
 	assert.NoError(t, err)
 	assert.True(t, valueTriple.IsActive)
+}
+
+func TestStore_transactions(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"manifests.yaml":   manifestsFixture,
+		"module_tags.yaml": moduleTagsFixture,
+		"triples.yaml":     triplesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+
+	triples, err := store.QueryValueTripleModels(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 2)
+
+	err = triples[0].Delete(store.Ctx, store.DB)
+	assert.NoError(t, err)
+
+	triples, err = store.QueryValueTripleModels(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 1)
+
+	txStore, err := store.BeginTx(nil)
+	assert.NoError(t, err)
+
+	err = triples[0].Delete(store.Ctx, txStore.DB)
+	assert.NoError(t, err)
+
+	err = txStore.Tx().Rollback()
+	assert.NoError(t, err)
+
+	assert.ErrorContains(t, txStore.Init(), "cannot Init via transaction")
+	assert.ErrorContains(t, txStore.Migrate(), "cannot Migrate via transaction")
+	assert.NoError(t, txStore.Close())
+
+	triples, err = store.QueryValueTripleModels(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 1)
+	
+	store, err = OpenWithDB(context.Background(), test.NewTestDB(t))
+	require.NoError(t, err)
+
+	bytes, err := os.ReadFile("../../sample/corim/unsigned-cca-ref-plat.cbor")
+	require.NoError(t, err)
+
+	txStore, err = store.BeginTx(nil)
+	assert.NoError(t, err)
+
+	err = txStore.AddBytes(bytes, "test", true)
+	assert.NoError(t, err)
+
+	err = txStore.Tx().Rollback()
+	assert.NoError(t, err)
+
+	_, err = store.QueryValueTripleModels(nil)
+	assert.ErrorIs(t, err, ErrNoMatch)
+
+	txStore, err = store.BeginTx(nil)
+	assert.NoError(t, err)
+
+	err = txStore.AddBytes(bytes, "test", true)
+	assert.NoError(t, err)
+
+	err = txStore.Tx().Commit()
+	assert.NoError(t, err)
+
+	triples, err = store.QueryValueTripleModels(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 1)
 }
 
 func newStoreWithSampleCoRIMs(t *testing.T) *Store {
