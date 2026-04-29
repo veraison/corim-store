@@ -26,7 +26,7 @@ var ErrNoMatch = errors.New("no match found")
 
 type Store struct {
 	Ctx context.Context
-	DB  *bun.DB
+	DB  bun.IDB
 
 	cfg *Config
 }
@@ -56,14 +56,49 @@ func OpenWithDB(ctx context.Context, db *bun.DB, options ...ConfigOption) (*Stor
 	return &Store{Ctx: ctx, cfg: cfg, DB: db}, nil
 }
 
-// Close the Store, including its database connection.
+// Close the Store. If the Store has a database connection (rather than a
+// transaction), the database connection will be closed as well.
 func (o *Store) Close() error {
-	return o.DB.Close()
+	db, ok := o.DB.(*bun.DB)
+	if ok {
+		return db.Close()
+	}
+
+	return nil
+}
+
+// BeginTx starts an new transaction (bun.Tx) and returns a Store that uses
+// that transaction as its "database". All method invocations on the returned
+// Store will be part of of that transaction. The transaction can be committed
+// or rolled back by accessing it via Tx() method of the returned Store.
+func (o *Store) BeginTx(opts *sql.TxOptions) (*Store, error) {
+	tx, err := o.DB.BeginTx(o.Ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Store{Ctx: o.Ctx, DB: tx, cfg: o.cfg}, nil
+}
+
+// Tx return *bun.Tx pointing to the transaction the Store is using as its DB.
+// If Store.DB is not a transaction, nil si returned.
+func (o *Store) Tx() *bun.Tx {
+	tx, ok := o.DB.(bun.Tx)
+	if ok {
+		return &tx
+	}
+
+	return nil
 }
 
 // Init inializes a new database with the store's tables
 func (o *Store) Init() error {
-	migrator := migrate.NewMigrator(o.DB, migrations.Migrations)
+	db, ok := o.DB.(*bun.DB)
+	if !ok {
+		return errors.New("cannot Init via transaction")
+	}
+
+	migrator := migrate.NewMigrator(db, migrations.Migrations)
 
 	if err := migrator.Init(o.Ctx); err != nil {
 		return err
@@ -75,7 +110,12 @@ func (o *Store) Init() error {
 // Migrate upates the tables in the associated database to be compatible with this store.
 // (note: there is no need to run this after invoking Store.Init().)
 func (o *Store) Migrate() error {
-	migrator := migrate.NewMigrator(o.DB, migrations.Migrations)
+	db, ok := o.DB.(*bun.DB)
+	if !ok {
+		return errors.New("cannot Migrate via transaction")
+	}
+
+	migrator := migrate.NewMigrator(db, migrations.Migrations)
 
 	if err := migrator.Lock(o.Ctx); err != nil {
 		return err
@@ -695,7 +735,12 @@ func (o *Store) SetValueTriplesActive(
 // Clear removes all data from store (effectively truncating the tables
 // containing CoRIM/CoMID data).
 func (o *Store) Clear() error {
-	return model.ResetModels(o.Ctx, o.DB)
+	db, ok := o.DB.(*bun.DB)
+	if !ok {
+		return errors.New("cannot Clear via transaction")
+	}
+
+	return model.ResetModels(o.Ctx, db)
 }
 
 // StringAggregatorExpr returns an expression using a dialect-specific

@@ -44,7 +44,7 @@ func (o *QueryGroup[M, Q]) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 	})
 }
 
-func (o *QueryGroup[M, Q]) Run(ctx context.Context, db *bun.DB) ([]M, error) {
+func (o *QueryGroup[M, Q]) Run(ctx context.Context, db bun.IDB) ([]M, error) {
 	results, err := o.RunGroup(ctx, db)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (o *QueryGroup[M, Q]) Run(ctx context.Context, db *bun.DB) ([]M, error) {
 	return ret, nil
 }
 
-func (o *QueryGroup[M, Q]) RunGroup(ctx context.Context, db *bun.DB) ([][]M, error) {
+func (o *QueryGroup[M, Q]) RunGroup(ctx context.Context, db bun.IDB) ([][]M, error) {
 	ret := make([][]M, len(o.subqueries))
 	for i, sub := range o.subqueries {
 		subResult, err := sub.Run(ctx, db)

@@ -26,7 +26,7 @@ type Query[T model.Model] interface {
 	// Run this Query against the provided database. If the Query contains
 	// sub-queries, those are run first, and their results are used to
 	// update the IDs in the main query.
-	Run(ctx context.Context, db *bun.DB) ([]T, error)
+	Run(ctx context.Context, db bun.IDB) ([]T, error)
 	// IsEmpty returns true if this Query, and any sub-queries, does not
 	// contain any parameters. When an empty query is run, all entries for
 	// the model corresponding to T in the store are returned.
@@ -80,7 +80,7 @@ func (o *LocatorQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.
 	addOrGroupWhereClause("manifest_id", o.manifestIDs, false, query, dialect)
 }
 
-func (o *LocatorQuery) Run(ctx context.Context, db *bun.DB) ([]*model.Locator, error) {
+func (o *LocatorQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Locator, error) {
 	if !o.DigestsSubquery().IsEmpty() {
 		o.saveIDs()
 
@@ -189,7 +189,7 @@ func (o *EntityQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.D
 	addOrGroupWhereClause("uri", o.uris, false, query, dialect)
 }
 
-func (o *EntityQuery) Run(ctx context.Context, db *bun.DB) ([]*model.Entity, error) {
+func (o *EntityQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Entity, error) {
 	if len(o.roles) != 0 {
 		o.saveIDs()
 
@@ -365,7 +365,7 @@ func (o *ManifestQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema
 	addOrGroupWhereClause("digest", o.digests, false, query, dialect)
 }
 
-func (o *ManifestQuery) Run(ctx context.Context, db *bun.DB) ([]*model.ManifestEntry, error) { // nolint:dupl
+func (o *ManifestQuery) Run(ctx context.Context, db bun.IDB) ([]*model.ManifestEntry, error) { // nolint:dupl
 	if !o.EntitiesSubquery().IsEmpty() {
 		o.saveManifestDbIDs()
 
@@ -478,7 +478,7 @@ func (o *LinkedTagQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schem
 	addOrGroupWhereClause("module_id", o.moduleIDs, false, query, dialect)
 }
 
-func (o *LinkedTagQuery) Run(ctx context.Context, db *bun.DB) ([]*model.LinkedTag, error) {
+func (o *LinkedTagQuery) Run(ctx context.Context, db bun.IDB) ([]*model.LinkedTag, error) {
 	return runQuery(ctx, db, o)
 }
 
@@ -649,7 +649,7 @@ func (o *ModuleTagQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schem
 	o.ModuleTagCommonQuery.UpdateSelectQuery(query, dialect)
 }
 
-func (o *ModuleTagQuery) Run(ctx context.Context, db *bun.DB) ([]*model.ModuleTagEntry, error) { // nolint:dupl
+func (o *ModuleTagQuery) Run(ctx context.Context, db bun.IDB) ([]*model.ModuleTagEntry, error) { // nolint:dupl
 	if !o.EntitiesSubquery().IsEmpty() {
 		o.saveModuleTagDbIDs()
 
@@ -906,7 +906,7 @@ func (o *EnvironmentQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 	updateQueryWithEntries(o.instances, query)
 }
 
-func (o *EnvironmentQuery) Run(ctx context.Context, db *bun.DB) ([]*model.Environment, error) {
+func (o *EnvironmentQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Environment, error) {
 	return runQuery(ctx, db, o)
 }
 
@@ -1327,7 +1327,7 @@ func (o *TripleQuery[T, TT]) UpdateSelectQuery(query *bun.SelectQuery, dialect s
 	}
 }
 
-func (o *TripleQuery[T, TT]) Run(ctx context.Context, db *bun.DB) ([]T, error) {
+func (o *TripleQuery[T, TT]) Run(ctx context.Context, db bun.IDB) ([]T, error) {
 	if !o.EnvironmentSubquery().IsEmpty() {
 		savedQueryIDs := slices.Clone(o.EnvironmentSubquery().ids)
 		environments, err := o.EnvironmentSubquery().ID(o.environmentIDs...).Run(ctx, db)
@@ -1587,7 +1587,7 @@ func (o *CryptoKeyQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schem
 	updateQueryWithEntries(o.keys, query)
 }
 
-func (o *CryptoKeyQuery) Run(ctx context.Context, db *bun.DB) ([]*model.CryptoKey, error) {
+func (o *CryptoKeyQuery) Run(ctx context.Context, db bun.IDB) ([]*model.CryptoKey, error) {
 	return runQuery(ctx, db, o)
 }
 
@@ -1670,7 +1670,7 @@ func (o *DigestQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.D
 	updateQueryWithEntries(o.digests, query)
 }
 
-func (o *DigestQuery) Run(ctx context.Context, db *bun.DB) ([]*model.Digest, error) {
+func (o *DigestQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Digest, error) {
 	return runQuery(ctx, db, o)
 }
 
@@ -1766,7 +1766,7 @@ func (o *IntegrityRegisterQuery) UpdateSelectQuery(query *bun.SelectQuery, diale
 	addOrGroupWhereClause("measurement_id", o.measurementIDs, false, query, dialect)
 }
 
-func (o *IntegrityRegisterQuery) Run(ctx context.Context, db *bun.DB) ([]*model.IntegrityRegister, error) {
+func (o *IntegrityRegisterQuery) Run(ctx context.Context, db bun.IDB) ([]*model.IntegrityRegister, error) {
 	if !o.DigestsSubquery().IsEmpty() {
 		o.saveIDs()
 
@@ -1855,7 +1855,7 @@ func (o *FlagQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dia
 	updateQueryWithEntries(o.entries, query)
 }
 
-func (o *FlagQuery) Run(ctx context.Context, db *bun.DB) ([]*model.Flag, error) {
+func (o *FlagQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Flag, error) {
 	return runQuery(ctx, db, o)
 }
 
@@ -1978,7 +1978,7 @@ func (o *MeasurementValueQuery) UpdateSelectQuery(query *bun.SelectQuery, dialec
 	addOrGroupWhereClause("measurement_id", o.measurementIDs, false, query, dialect)
 }
 
-func (o *MeasurementValueQuery) Run(ctx context.Context, db *bun.DB) ([]*model.MeasurementValueEntry, error) {
+func (o *MeasurementValueQuery) Run(ctx context.Context, db bun.IDB) ([]*model.MeasurementValueEntry, error) {
 	return runQuery(ctx, db, o)
 }
 
@@ -2181,7 +2181,7 @@ func (o *MeasurementQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 	updateQueryWithEntries(o.mkeys, query)
 }
 
-func (o *MeasurementQuery) Run(ctx context.Context, db *bun.DB) ([]*model.Measurement, error) {
+func (o *MeasurementQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Measurement, error) {
 	if !o.AuthorizedBySubquery().IsEmpty() {
 		o.saveIDs()
 
@@ -2906,7 +2906,7 @@ func updateQueryWithEntries[T queryEntry](entries []T, query *bun.SelectQuery) {
 	}
 }
 
-func runQuery[T model.Model](ctx context.Context, db *bun.DB, query Query[T]) ([]T, error) {
+func runQuery[T model.Model](ctx context.Context, db bun.IDB, query Query[T]) ([]T, error) {
 	var ret []T
 	bunQuery := db.NewSelect().Model(&ret)
 	query.UpdateSelectQuery(bunQuery, db.Dialect())
