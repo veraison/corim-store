@@ -20,7 +20,7 @@ func TestStore_roundtrip(t *testing.T) {
 
 	classIDBytes := comid.MustHexDecode(t,
 		"7f454c4602010100000000000000000003003e00010000005058000000000000")
-	implID, err := comid.NewImplIDClassID(classIDBytes)
+	implID, err := comid.NewBytesClassID(classIDBytes)
 	require.NoError(t, err)
 	platRefLookup := comid.Environment{Class: &comid.Class{ClassID: implID}}
 
@@ -460,8 +460,8 @@ func TestStore_QueryValueTriples(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, triples, 2)
 	assert.Equal(t,
-		"f0VMRgIBAQAAAAAAAAAAAAMAPgABAAAAUFgAAAAAAAA=",
-		triples[0].Environment.Class.ClassID.String(),
+		comid.MustHexDecode(t, "7f454c4602010100000000000000000003003e00010000005058000000000000"),
+		triples[0].Environment.Class.ClassID.Bytes(),
 	)
 }
 
@@ -473,8 +473,8 @@ func TestStore_QueryEnvironments(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, environments, 3)
 	assert.Equal(t,
-		"f0VMRgIBAQAAAAAAAAAAAAMAPgABAAAAUFgAAAAAAAA=",
-		environments[0].Class.ClassID.String(),
+		comid.MustHexDecode(t, "7f454c4602010100000000000000000003003e00010000005058000000000000"),
+		environments[0].Class.ClassID.Bytes(),
 	)
 }
 

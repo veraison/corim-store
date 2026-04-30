@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +55,6 @@ func TestCoSERVService(t *testing.T) {
 						Val: comid.Mval{Name: &name},
 					}),
 				}),
-			Timestamp:  time.Now(),
 			ResultType: coserv.ResultTypeCollectedArtifacts,
 		},
 	}

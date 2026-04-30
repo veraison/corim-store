@@ -195,9 +195,14 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 	}
 
 	if origin.Val.Ver != nil {
+		valueType := ""
+		if origin.Val.Ver.Scheme != nil {
+			valueType = origin.Val.Ver.Scheme.String()
+		}
+
 		o.ValueEntries = append(o.ValueEntries, &MeasurementValueEntry{
 			CodePoint: MvalVersion,
-			ValueType: origin.Val.Ver.Scheme.String(),
+			ValueType: valueType,
 			ValueText: &origin.Val.Ver.Version,
 		})
 	}
@@ -649,45 +654,45 @@ func (o *Measurement) Delete(ctx context.Context, db bun.IDB) error { // nolint:
 	return err
 }
 
-func parseVersionScheme(text string) (swid.VersionScheme, error) {
+func parseVersionScheme(text string) (*swid.VersionScheme, error) {
 	var ret swid.VersionScheme
 
 	switch text {
 	case "multipartnumeric":
 		if err := ret.SetCode(swid.VersionSchemeMultipartNumeric); err != nil {
-			return ret, err
+			return &ret, err
 		}
 	case "multipartnumeric+suffix":
 		if err := ret.SetCode(swid.VersionSchemeMultipartNumericSuffix); err != nil {
-			return ret, err
+			return &ret, err
 		}
 	case "alphanumeric":
 		if err := ret.SetCode(swid.VersionSchemeAlphaNumeric); err != nil {
-			return ret, err
+			return &ret, err
 		}
 	case "decimal":
 		if err := ret.SetCode(swid.VersionSchemeDecimal); err != nil {
-			return ret, err
+			return &ret, err
 		}
 	case "semver":
 		if err := ret.SetCode(swid.VersionSchemeSemVer); err != nil {
-			return ret, err
+			return &ret, err
 		}
 	case "":
-		return ret, nil
+		return nil, nil
 	default:
 		if strings.HasPrefix(text, "version-scheme(") {
 			code, err := strconv.Atoi(text[15 : len(text)-1])
 			if err != nil {
-				return ret, fmt.Errorf("could not parse version scheme %q: %w", text, err)
+				return &ret, fmt.Errorf("could not parse version scheme %q: %w", text, err)
 			}
 			if err := ret.SetCode(int64(code)); err != nil {
-				return ret, err
+				return &ret, err
 			}
 		} else {
-			return ret, fmt.Errorf("invalid version scheme: %s", text)
+			return &ret, fmt.Errorf("invalid version scheme: %s", text)
 		}
 	}
 
-	return ret, nil
+	return &ret, nil
 }
