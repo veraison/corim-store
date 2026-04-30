@@ -13,7 +13,7 @@ GOLINT_VERSION = v1.64.8
 GOLINT = $(TOPDIR)/tools-bin/golangci-lint
 GOLINT_STAMP = $(TOPDIR)/tools-bin/golangci-lint-$(GOLINT_VERSION).stamp
 
-GOIGNORECOV_VERSION = v0.3.0
+GOIGNORECOV_VERSION = v0.6.2
 GOIGNORECOV = $(TOPDIR)/tools-bin/go-ignore-cov
 GOIGNORECOV_STAMP = $(TOPDIR)/tools-bin/go-ignore-cov-$(GOIGNORECOV_VERSION).stamp
 
@@ -53,7 +53,7 @@ $(GOIGNORECOV): $(GOIGNORECOV_STAMP)
 $(GOIGNORECOV_STAMP):
 	mkdir -p $(dir $(GOLINT))
 	touch $(GOIGNORECOV_STAMP)
-	GOBIN=$(dir $(GOIGNORECOV)) $(GO) install github.com/hexira/go-ignore-cov@$(GOIGNORECOV_VERSION)
+	GOBIN=$(dir $(GOIGNORECOV)) $(GO) install github.com/MatthiasWerning/go-ignore-cov@$(GOIGNORECOV_VERSION)
 
 .PHONY: lint
 lint: $(GOLINT)
