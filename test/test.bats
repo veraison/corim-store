@@ -11,8 +11,10 @@ function setup() {
     load 'test_helper/bats-support/load'
     load 'test_helper/bats-assert/load'
 
-    $CORIM_STORE --config "$ROOT_DIR"/sample/config/mariadb.yaml db migrate
-    $CORIM_STORE --config "$ROOT_DIR"/sample/config/postgres.yaml db migrate
+    rm -f /tmp/test-corim-store-db.sqlite
+    $CORIM_STORE --config "$ROOT_DIR"/sample/config/sqlite3.yaml db init
+    $CORIM_STORE --config "$ROOT_DIR"/sample/config/mariadb.yaml db init
+    $CORIM_STORE --config "$ROOT_DIR"/sample/config/postgres.yaml db init
 }
 
 function teardown() {
