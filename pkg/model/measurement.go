@@ -673,6 +673,8 @@ func parseVersionScheme(text string) (swid.VersionScheme, error) {
 		if err := ret.SetCode(swid.VersionSchemeSemVer); err != nil {
 			return ret, err
 		}
+	case "":
+		return ret, nil
 	default:
 		if strings.HasPrefix(text, "version-scheme(") {
 			code, err := strconv.Atoi(text[15 : len(text)-1])
