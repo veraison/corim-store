@@ -169,6 +169,7 @@ func TestModuleTag_Validate(t *testing.T) {
 }
 
 func TestModuleTag_ToCoRIM(t *testing.T) {
+	badIDType := "foo"
 	testCases := []struct {
 		title string
 		mt    ModuleTag
@@ -188,6 +189,88 @@ func TestModuleTag_ToCoRIM(t *testing.T) {
 				TagID:     "foo",
 			},
 			err: "invalid UUID length",
+		},
+		{
+			title: "nok bad string tag ID",
+			mt: ModuleTag{
+				TagIDType: comid.StringType,
+				TagID:     "",
+			},
+			err: "could not create swid.TagID from \"\"",
+		},
+		{
+			title: "nok bad entities",
+			mt: ModuleTag{
+				TagIDType: comid.StringType,
+				TagID:     "foo",
+				Entities:  []*Entity{&Entity{}},
+			},
+			err: "unexpected entity name type",
+		},
+		{
+			title: "nok bad linked tags",
+			mt: ModuleTag{
+				TagIDType:  comid.StringType,
+				TagID:      "foo",
+				LinkedTags: []*LinkedTag{&LinkedTag{}},
+			},
+			err: "unexpected linked tag ID type",
+		},
+		{
+			title: "nok bad reference triples",
+			mt: ModuleTag{
+				TagIDType: comid.StringType,
+				TagID:     "foo",
+				ValueTriples: []*ValueTriple{&ValueTriple{
+					Type: ReferenceValueTriple,
+					Environment: &Environment{
+						ClassType: &badIDType,
+					},
+				}},
+			},
+			err: "could not convert value triple at index 0",
+		},
+		{
+			title: "nok bad endorsement triples",
+			mt: ModuleTag{
+				TagIDType: comid.StringType,
+				TagID:     "foo",
+				ValueTriples: []*ValueTriple{&ValueTriple{
+					Type: EndorsedValueTriple,
+					Environment: &Environment{
+						ClassType: &badIDType,
+					},
+				}},
+			},
+			err: "could not convert value triple at index 0",
+		},
+		{
+			title: "nok bad attest key triples",
+			mt: ModuleTag{
+				TagIDType: comid.StringType,
+				TagID:     "foo",
+				KeyTriples: []*KeyTriple{&KeyTriple{
+					Type: AttestKeyTriple,
+					Environment: &Environment{
+						ClassType: &badIDType,
+					},
+				}},
+			},
+			err: "could not convert key triple at index 0",
+		},
+		{
+			title: "nok bad identity triples",
+			mt: ModuleTag{
+				TagIDType: comid.StringType,
+				TagID:     "foo",
+				KeyTriples: []*KeyTriple{&KeyTriple{
+					Type: IdentityKeyTriple,
+					Environment: &Environment{
+						ClassType: &badIDType,
+					},
+				}},
+			},
+			err: "could not convert key triple at index 0",
 		},
 	}
 

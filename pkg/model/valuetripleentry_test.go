@@ -28,6 +28,14 @@ func TestValueTripleEntry_Select(t *testing.T) {
 	vt, err := vte.ToTriple(ctx, db)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedEnv, *vt.Environment)
+
+	manifest, err := vte.ToManifest(ctx, db)
+	assert.NoError(t, err)
+	assert.Equal(t, vte.ManifestID, manifest.ManifestID)
+
+	moduleTag, err := vte.ToModuleTag(ctx, db)
+	assert.NoError(t, err)
+	assert.Equal(t, vte.ModuleTagID, moduleTag.TagID)
 }
 
 func TestValueTripleEntry_model_methods(t *testing.T) {

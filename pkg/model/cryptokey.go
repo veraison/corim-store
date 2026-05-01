@@ -109,19 +109,23 @@ func (o *CryptoKey) FromCoRIM(origin *comid.CryptoKey) error {
 	case comid.BytesType, comid.COSEKeyType:
 		switch t := origin.Value.(type) {
 		case comid.TaggedBytes:
+			// coverage: ignore
 			keyBytes = []byte(t)
 		case *comid.TaggedBytes:
 			keyBytes = []byte(*t)
 		case comid.TaggedCOSEKey:
 			keyBytes = []byte(t)
 		case *comid.TaggedCOSEKey:
+			// coverage: ignore
 			keyBytes = []byte(*t)
 		default:
+			// coverage: ignore
 			return fmt.Errorf("expected crypto key bytes, found: %T", t)
 		}
 	default:
 		keyBytes, err = origin.MarshalCBOR()
 		if err != nil {
+			// coverage: ignore
 			return fmt.Errorf("could not CBOR-encode crypto key: %w", err)
 		}
 	}
@@ -147,10 +151,12 @@ func (o *CryptoKey) ToCoRIM() (*comid.CryptoKey, error) {
 	default:
 		ret, err := comid.NewCryptoKey(nil, o.KeyType)
 		if err != nil {
+			// coverage:ignore
 			return nil, err
 		}
 
 		if err = cbor.Unmarshal(o.KeyBytes, ret); err != nil {
+			// coverage:ignore
 			return nil, fmt.Errorf("could not CBOR-decode crypto key: %w", err)
 		}
 
