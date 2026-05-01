@@ -31,4 +31,12 @@ func TestKeyTripleEntry_Select(t *testing.T) {
 	vt, err := kte.ToTriple(ctx, db)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedEnv, *vt.Environment)
+
+	manifest, err := kte.ToManifest(ctx, db)
+	assert.NoError(t, err)
+	assert.Equal(t, kte.ManifestID, manifest.ManifestID)
+
+	moduleTag, err := kte.ToModuleTag(ctx, db)
+	assert.NoError(t, err)
+	assert.Equal(t, kte.ModuleTagID, moduleTag.TagID)
 }
