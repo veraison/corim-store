@@ -48,4 +48,7 @@ var (
 
 	//go:embed  fixtures/triples.yaml
 	triplesFixture []byte
+
+	//go:embed  fixtures/tokens.yaml
+	tokensFixture []byte
 )

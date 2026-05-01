@@ -55,6 +55,7 @@ var tableModels = []any{
 	(*ModuleTag)(nil),
 	(*RoleEntry)(nil),
 	(*ValueTriple)(nil),
+	(*Token)(nil),
 }
 
 var viewModels = []any{

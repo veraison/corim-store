@@ -2308,6 +2308,100 @@ func (o *MeasurementQuery) IsEmpty() bool {
 		o.FlagsSubquery().IsEmpty()
 }
 
+type TokenQuery struct {
+	modelQuery
+
+	manifestIDs []string
+	isSigned    []bool
+	data        [][]byte
+
+	authoritySubquery *CryptoKeyQuery
+}
+
+func NewTokenQuery() *TokenQuery {
+	return &TokenQuery{}
+}
+
+func (o *TokenQuery) ID(value ...int64) *TokenQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *TokenQuery) ManifestID(value ...string) *TokenQuery {
+	o.manifestIDs = append(o.manifestIDs, value...)
+	return o
+}
+
+func (o *TokenQuery) IsSigned(value ...bool) *TokenQuery {
+	o.isSigned = append(o.isSigned, value...)
+	return o
+}
+
+func (o *TokenQuery) Data(value ...[]byte) *TokenQuery {
+	o.data = append(o.data, value...)
+	return o
+}
+
+func (o *TokenQuery) AuthoritySubquery() *CryptoKeyQuery {
+	if o.authoritySubquery == nil {
+		o.authoritySubquery = NewCryptoKeyQuery()
+	}
+
+	return o.authoritySubquery
+}
+
+func (o *TokenQuery) Authority(updater func(*CryptoKeyQuery)) *TokenQuery {
+	updater(o.AuthoritySubquery())
+	return o
+}
+
+func (o *TokenQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+
+	addOrGroupWhereClause("manifest_id", o.manifestIDs, false, query, dialect)
+	addOrGroupWhereClause("is_signed", o.isSigned, false, query, dialect)
+	addOrGroupWhereClause("data", o.data, false, query, dialect)
+}
+
+func (o *TokenQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Token, error) {
+	if !o.AuthoritySubquery().IsEmpty() {
+		o.saveIDs()
+
+		cks, err := o.AuthoritySubquery().
+			OwnerType("token").
+			OwnerID(o.ids...).
+			Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.AuthoritySubquery().ownerTypes = nil
+		o.AuthoritySubquery().ownerIDs = nil
+
+		if err != nil {
+			// coverage:ignore
+			o.restoreIDs()
+			return nil, fmt.Errorf("authority: %w", err)
+		}
+
+		o.ids = make([]int64, len(cks))
+		for i, ck := range cks {
+			o.ids[i] = ck.OwnerID
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreIDs()
+	return ret, err
+}
+
+func (o *TokenQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.manifestIDs) == 0 &&
+		len(o.isSigned) == 0 &&
+		len(o.data) == 0 &&
+		o.AuthoritySubquery().IsEmpty()
+}
+
 type modelQuery struct {
 	ids []int64
 

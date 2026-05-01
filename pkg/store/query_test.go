@@ -1125,3 +1125,36 @@ func TestValueTripleQuery(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 }
+
+func TestTokenQuery(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"tokens.yaml": tokensFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	query := NewTokenQuery()
+	assert.True(t, query.IsEmpty())
+
+	result, err := query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	result, err = query.ID(1, 2).Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	query = NewTokenQuery().
+		IsSigned(true).
+		ManifestID("cca-ref-plat").
+		Authority(func(ckq *CryptoKeyQuery) {
+			ckq.KeyType("cose-key")
+		})
+
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	_, err = NewTokenQuery().Data([]byte{0xde, 0xad, 0xbe, 0xef}).Run(ctx, db)
+	assert.ErrorIs(t, err, ErrNoMatch)
+}
