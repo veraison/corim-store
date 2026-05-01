@@ -61,7 +61,7 @@ func (o *KeyTripleEntry) Select(ctx context.Context, db bun.IDB) error {
 		Scan(ctx)
 }
 
-func (o *KeyTripleEntry) Manifest(ctx context.Context, db bun.IDB) (*Manifest, error) {
+func (o *KeyTripleEntry) ToManifest(ctx context.Context, db bun.IDB) (*Manifest, error) {
 	if o.ManifestDbID == 0 {
 		return nil, errors.New("ManifestDbID not set")
 	}
@@ -75,7 +75,7 @@ func (o *KeyTripleEntry) Manifest(ctx context.Context, db bun.IDB) (*Manifest, e
 	return man, nil
 }
 
-func (o *KeyTripleEntry) ModuleTag(ctx context.Context, db bun.IDB) (*ModuleTag, error) {
+func (o *KeyTripleEntry) ToModuleTag(ctx context.Context, db bun.IDB) (*ModuleTag, error) {
 	if o.ModuleTagDbID == 0 {
 		return nil, errors.New("ModuleTagDbID not set")
 	}
