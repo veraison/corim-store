@@ -10,6 +10,7 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim-store/pkg/test"
+	"github.com/veraison/corim-store/pkg/util"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
 )
@@ -122,7 +123,7 @@ func TestStore_AddBytes(t *testing.T) {
 		{
 			title: "nok signed without insecure",
 			path:  "../../sample/corim/signed-cca-ta.cose",
-			err:   "signed CoRIM validation not supported",
+			err:   "CoRIM signature must be verified",
 		},
 		{
 			title: "nok input too short",
@@ -550,7 +551,7 @@ func TestStore_transactions(t *testing.T) {
 	triples, err = store.QueryValueTripleModels(nil)
 	assert.NoError(t, err)
 	assert.Len(t, triples, 1)
-	
+
 	store, err = OpenWithDB(context.Background(), test.NewTestDB(t))
 	require.NoError(t, err)
 
@@ -581,6 +582,101 @@ func TestStore_transactions(t *testing.T) {
 	triples, err = store.QueryValueTripleModels(nil)
 	assert.NoError(t, err)
 	assert.Len(t, triples, 1)
+}
+
+func TestStore_VerifyAndAddBytes(t *testing.T) {
+	db := test.NewTestDB(t)
+	store, err := OpenWithDB(context.Background(), db)
+	assert.NoError(t, err)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	bytes, err := os.ReadFile("../../sample/corim/signed-cca-ref-plat.cose")
+	require.NoError(t, err)
+
+	keys, err := util.KeyStoreFromJWKPath("../../sample/corim/key.pub.jwk")
+	require.NoError(t, err)
+
+	err = store.VerifyAndAddBytes(bytes, keys, "test", true)
+	assert.NoError(t, err)
+
+	triples, err := store.QueryValueTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 1)
+
+	badKey := `
+	{
+	  "kty": "EC",
+	  "crv": "P-256",
+	  "x": "b8XnCq7yxGzFIDw9zSkA7aAPtXzvKxGe5jliN4vqJpU",
+	  "y": "RZJj7mOZMU4aFvPo-ZhB_C3wRTOr6YCfuJ_vI6XSEaw"
+	}
+	`
+
+	keys, err = util.KeyStoreFromJWKBytes([]byte(badKey))
+	require.NoError(t, err)
+
+	err = store.VerifyAndAddBytes(bytes, keys, "test", true)
+	assert.ErrorContains(t, err, "verification error")
+}
+
+func TestStore_AddToken(t *testing.T) {
+	db := test.NewTestDB(t)
+	store, err := OpenWithDB(context.Background(), db)
+	assert.NoError(t, err)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	token := model.Token{
+		ManifestID: "foo",
+		Data:       []byte{0xde, 0xad, 0xbe, 0xef},
+	}
+
+	err = store.AddToken(&token)
+	assert.NoError(t, err)
+
+	token.ID = 0
+	err = store.AddToken(&token)
+	assert.ErrorContains(t, err, "token already in store")
+
+	token.Data = []byte{0xc0, 0xde, 0xca, 0xfe}
+	err = store.AddToken(&token)
+	assert.ErrorContains(t, err, "token with manifest ID \"foo\" already in store")
+
+	store.cfg.Force = true
+	err = store.AddToken(&token)
+	assert.NoError(t, err)
+
+	buf, err := store.GetTokenBytes(token.ManifestID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, buf)
+}
+
+func TestStore_GetTokenBytes(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"tokens.yaml": tokensFixture,
+	})
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	buf, err := store.GetTokenBytes("cca-ref-plat")
+	assert.NoError(t, err)
+	assert.NotNil(t, buf)
+
+	_, err = store.GetTokenBytes("invalid")
+	assert.ErrorIs(t, err, ErrNoMatch)
+}
+
+func TestStore_QueryTokenModels(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"tokens.yaml": tokensFixture,
+	})
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, store.Close()) }()
+
+	tokens, err := store.QueryTokenModels(nil)
+	assert.NoError(t, err)
+	assert.Len(t, tokens, 2)
 }
 
 func newStoreWithSampleCoRIMs(t *testing.T) *Store {

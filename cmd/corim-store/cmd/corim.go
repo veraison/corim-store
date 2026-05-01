@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/veraison/corim-store/pkg/store"
+	"github.com/spf13/pflag"
+	storemod "github.com/veraison/corim-store/pkg/store"
+	"github.com/veraison/corim-store/pkg/util"
 	"github.com/veraison/corim/corim"
 )
 
@@ -84,7 +88,12 @@ func runAddCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	store, err := store.Open(context.Background(), cliConfig.Store())
+	keyStore, err := openKeyStore(cmd.Flags())
+	if err != nil {
+		return err
+	}
+
+	store, err := storemod.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
 	}
@@ -96,7 +105,13 @@ func runAddCommand(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error reading %s: %w", path, err)
 		}
 
-		if err := store.AddBytes(bytes, label, activate); err != nil {
+		if util.IsSignedCoRIM(bytes) && keyStore != nil {
+			err = store.VerifyAndAddBytes(bytes, keyStore, label, activate)
+		} else {
+			err = store.AddBytes(bytes, label, activate)
+		}
+
+		if err != nil {
 			return fmt.Errorf("error adding %s: %w", path, err)
 		}
 
@@ -122,25 +137,32 @@ func runDumpCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("output file exists: %s (use --force to overwrite)", outpath)
 	}
 
-	store, err := store.Open(context.Background(), cliConfig.Store())
+	store, err := storemod.Open(context.Background(), cliConfig.Store())
 	if err != nil {
 		return err
 	}
 	defer func() { CheckErr(store.Close()) }()
 
-	manifest, err := store.GetManifest(args[0], label)
+	bytes, err := store.GetTokenBytes(args[0])
 	if err != nil {
-		return err
-	}
+		if err != storemod.ErrNoMatch {
+			return err
+		}
 
-	corim, err := manifest.ToCoRIM()
-	if err != nil {
-		return fmt.Errorf("could not convert manifest to CoRIM: %w", err)
-	}
+		manifest, err := store.GetManifest(args[0], label)
+		if err != nil {
+			return err
+		}
 
-	bytes, err := corim.ToCBOR()
-	if err != nil {
-		return fmt.Errorf("could not encode CoRIM: %w", err)
+		corim, err := manifest.ToCoRIM()
+		if err != nil {
+			return fmt.Errorf("could not convert manifest to CoRIM: %w", err)
+		}
+
+		bytes, err = corim.ToCBOR()
+		if err != nil {
+			return fmt.Errorf("could not encode CoRIM: %w", err)
+		}
 	}
 
 	if err := os.WriteFile(outpath, bytes, 0664); err != nil {
@@ -200,7 +222,7 @@ func runDeleteCommand(cmd *cobra.Command, args []string) error {
 			manifestID = pathOrID
 		}
 
-		store, err := store.Open(context.Background(), cliConfig.Store())
+		store, err := storemod.Open(context.Background(), cliConfig.Store())
 		if err != nil {
 			return err
 		}
@@ -215,11 +237,33 @@ func runDeleteCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func openKeyStore(flags *pflag.FlagSet) (util.KeyStore, error) {
+	keyPath, err := flags.GetString("key")
+	if err != nil {
+		return nil, err
+	}
+
+	if keyPath == "" {
+		return nil, nil
+	}
+
+	ext := strings.ToLower(filepath.Ext(keyPath))
+	switch ext {
+	case ".jwk", ".json":
+		return util.KeyStoreFromJWKPath(keyPath)
+	case ".pem", ".pub", "":
+		return util.KeyStoreFromPEMPath(keyPath)
+	default:
+		return nil, fmt.Errorf("unrecognized key extension: %s", ext)
+	}
+}
+
 func init() {
 	corimCmd.PersistentFlags().StringP("label", "l", "",
 		"Label that will be applied to the manifest in the store.")
 
 	addCmd.Flags().BoolP("activate", "a", false, "Activate added triples.")
+	addCmd.Flags().StringP("key", "k", "", "Public key use to verify signatures on signed CoRIMs.")
 
 	deleteCmd.Flags().BoolP("corim", "C", false,
 		"force interpretation the positional argument as a path to CoRIM")

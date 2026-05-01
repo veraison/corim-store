@@ -127,10 +127,65 @@ func (o *Store) Migrate() error {
 	return err
 }
 
+// VerifyAndAddBytes verify the signature on the signed CoRIM contained in the
+// buffer using keys in the provided store, and, if successful, add the CoRIM
+// to the store (as with AddBytes).
+func (o *Store) VerifyAndAddBytes(buf []byte, keys util.KeyStore, label string, activate bool) error {
+	if !util.IsSignedCoRIM(buf) {
+		return fmt.Errorf("input must be a signed CoRIM")
+	}
+
+	var signed corim.SignedCorim
+	if err := signed.FromCOSE(buf); err != nil {
+		return err
+	}
+
+	key, err := keys.Get(&signed)
+	if err != nil {
+		return err
+	}
+
+	if err = signed.Verify(key.PublicKey()); err != nil {
+		return err
+	}
+
+	auth, err := model.NewCryptoKeyFromCoRIM(key.Authority())
+	if err != nil {
+		return err
+	}
+
+	txStore, err := o.BeginTx(nil)
+	if err != nil {
+		return err
+	}
+
+	token := model.Token{
+		Data:       buf,
+		IsSigned:   true,
+		ManifestID: signed.UnsignedCorim.GetID(),
+		Authority:  []*model.CryptoKey{auth},
+	}
+
+	if err := token.Insert(txStore.Ctx, txStore.DB); err != nil {
+		_ = txStore.Tx().Rollback()
+		return err
+	}
+
+	digest := o.Digest(buf)
+
+	if err := txStore.AddCoRIM(&signed.UnsignedCorim, digest, label, activate); err != nil {
+		_ = txStore.Tx().Rollback()
+		return err
+	}
+
+	return txStore.Tx().Commit()
+}
+
 // AddBytes adds the CBOR-encoded CoRIM in the provided buffer to the store.
-// Signature validation of signed CoRIMs is not supported. If insecure
-// transactions are allowed by the Store's configuration, signed corims will
-// be added without validating their signatures. Otherwise, an error will be
+// Signature validation of signed CoRIMs is not performed (use
+// ValidateAndAddBytes to validate signatures on signed CoRIMs). If insecure
+// transactions are allowed by the Store's configuration, signed CoRIMs will
+// be added without validating their signatures; otherwise, an error will be
 // returned. If activate is true, the contained triples will be activated
 // before they are added.
 func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
@@ -138,31 +193,61 @@ func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 		return fmt.Errorf("input too short")
 	}
 
+	token := model.Token{Data: buf}
 	digest := o.Digest(buf)
+
+	txStore, err := o.BeginTx(nil)
+	if err != nil {
+		return err
+	}
 
 	if util.IsSignedCoRIM(buf) { // nolint:gocritic
 		if !o.cfg.Insecure {
-			return errors.New(
-				"signed CoRIM validation not supported (set insecure config to add unvalidated)",
-			)
+			_ = txStore.Tx().Rollback()
+			return errors.New("CoRIM signature must be verified")
 		}
 
 		var signed corim.SignedCorim
 		if err := signed.FromCOSE(buf); err != nil {
+			_ = txStore.Tx().Rollback()
 			return err
 		}
 
-		return o.AddCoRIM(&signed.UnsignedCorim, digest, label, activate)
+		token.IsSigned = true
+		token.ManifestID = signed.UnsignedCorim.GetID()
+		if err := txStore.AddToken(&token); err != nil {
+			_ = txStore.Tx().Rollback()
+			return err
+		}
+
+		if err := txStore.AddCoRIM(&signed.UnsignedCorim, digest, label, activate); err != nil {
+			_ = txStore.Tx().Rollback()
+			return err
+		}
 	} else if util.IsUnsignedCoRIM(buf) {
 		var unsigned corim.UnsignedCorim
 		if err := unsigned.FromCBOR(buf); err != nil {
+			_ = txStore.Tx().Rollback()
 			return err
 		}
 
-		return o.AddCoRIM(&unsigned, digest, label, activate)
+		token.IsSigned = false
+		token.ManifestID = unsigned.GetID()
+		if err := txStore.AddToken(&token); err != nil {
+			_ = txStore.Tx().Rollback()
+			return err
+		}
+
+		if err := txStore.AddCoRIM(&unsigned, digest, label, activate); err != nil {
+			_ = txStore.Tx().Rollback()
+			return err
+		}
 	} else {
+		_ = txStore.Tx().Rollback()
 		return fmt.Errorf("unrecognized input format")
 	}
+
+	return txStore.Tx().Commit()
 }
 
 // AddCoRIM adds the provided CoRIM to the store. The digest, if not nil,
@@ -183,6 +268,39 @@ func (o *Store) AddCoRIM(c *corim.UnsignedCorim, digest []byte, label string, ac
 	}
 
 	return o.AddManifest(m)
+}
+
+func (o *Store) AddToken(token *model.Token) error {
+	var existing model.Token
+	err := o.DB.NewSelect().Model(&existing).Where("manifest_id = ?", token.ManifestID).Scan(o.Ctx)
+	if err == nil { // found
+		if o.cfg.Force {
+			// select the existing manifest to fully populate its fields
+			if err := existing.Select(o.Ctx, o.DB); err != nil {
+				// coverage:ignore
+				return fmt.Errorf("error selecting existing token: %w", err)
+			}
+
+			if err := existing.Delete(o.Ctx, o.DB); err != nil {
+				// coverage:ignore
+				return fmt.Errorf("error deleting existing token: %w", err)
+			}
+		} else {
+			if slices.Equal(existing.Data, token.Data) {
+				return errors.New("token already in store")
+			} else {
+				return fmt.Errorf(
+					"different token with manifest ID %q already in store",
+					token.ManifestID,
+				)
+			}
+		}
+	} else if err != sql.ErrNoRows {
+		// coverage:ignore
+		return err
+	}
+
+	return token.Insert(o.Ctx, o.DB)
 }
 
 // AddManifest adds the provided manifest to the store.
@@ -665,6 +783,35 @@ func (o *Store) QueryValueTriples(query Query[*model.ValueTripleEntry]) ([]*comi
 	}
 
 	return ret, nil
+}
+
+// GetTokenBytes returns []byte containing the CoRIM token with the specified
+// manifest ID, previously added via AddBytes() or VerifyAndAddBytes().
+// (note: CoRIMs added via AddCoRIM() AddManifest() do not have token
+// associated with them).
+func (o *Store) GetTokenBytes(manifestID string) ([]byte, error) {
+	tokens, err := o.QueryTokenModels(NewTokenQuery().ManifestID(manifestID))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tokens) > 1 {
+		// coverage:ignore
+		return nil, fmt.Errorf("multiple tokens with manifest ID %s", manifestID)
+	}
+
+	return tokens[0].Data, nil
+}
+
+// QueryTokenModels returns Token's that match the provided query.
+// If the query is empty or is nil, all Token's in the Store are
+// returned.
+func (o *Store) QueryTokenModels(query Query[*model.Token]) ([]*model.Token, error) {
+	if query == nil {
+		query = NewTokenQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
 }
 
 // SetKeyTriplesActive sets the active status of key triples matching the
