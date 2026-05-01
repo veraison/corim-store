@@ -50,7 +50,7 @@ func KeyTriplesToCoRIM(origin []*KeyTriple, typ KeyTripleType) (*comid.KeyTriple
 
 		triple, err := originTriple.ToCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("could not conver key triple at index %d: %w", i, err)
+			return nil, fmt.Errorf("could not convert key triple at index %d: %w", i, err)
 		}
 
 		*ret = append(*ret, *triple)

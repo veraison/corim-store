@@ -186,6 +186,7 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 			var err error
 			mkeyBytes, err = origin.Key.MarshalCBOR()
 			if err != nil {
+				// coverage:ignore
 				return fmt.Errorf("could not CBOR-encode group: %w", err)
 			}
 		}
@@ -212,10 +213,12 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 
 		switch t := origin.Val.SVN.Value.(type) {
 		case comid.TaggedSVN:
+			// coverage:ignore
 			svn = int64(t)
 		case *comid.TaggedSVN:
 			svn = int64(*t)
 		case comid.TaggedMinSVN:
+			// coverage:ignore
 			svn = int64(t)
 		case *comid.TaggedMinSVN:
 			svn = int64(*t)

@@ -50,7 +50,7 @@ func ValueTriplesToCoRIM(origin []*ValueTriple, typ ValueTripleType) (*comid.Val
 
 		triple, err := originTriple.ToCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("could not conver value triple at index %d: %w", i, err)
+			return nil, fmt.Errorf("could not convert value triple at index %d: %w", i, err)
 		}
 
 		ret.Add(triple)

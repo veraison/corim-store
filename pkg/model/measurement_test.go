@@ -424,11 +424,32 @@ func TestMeasurement_model_methods(t *testing.T) {
 	assert.True(t, val.IsTable())
 }
 
+func TestSelectMeasurement_bad(t *testing.T) {
+	db := test.NewTestDB(t)
+	ctx := context.Background()
+
+	_, err := SelectMeasurement(ctx, db, 1)
+	assert.ErrorContains(t, err, "no rows in result set")
+}
+
 func TestMeasurementValueEntry_model_methods(t *testing.T) {
 	val := MeasurementValueEntry{ID: 1}
 	assert.Equal(t, val.ID, val.DbID())
 	assert.Equal(t, "measurement_value_entries", val.TableName())
 	assert.True(t, val.IsTable())
+}
+
+func TestMeasurementValueEntry_Select(t *testing.T) {
+	var mve MeasurementValueEntry
+	db := test.NewTestDB(t)
+	ctx := context.Background()
+
+	err := mve.Select(ctx, db)
+	assert.ErrorContains(t, err, "ID not set")
+
+	mve.ID = 1
+	err = mve.Select(ctx, db)
+	assert.ErrorContains(t, err, "no rows in result set")
 }
 
 func TestMeasurementValueEntry_Delete(t *testing.T) {

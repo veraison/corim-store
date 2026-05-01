@@ -142,3 +142,32 @@ func Test_RegisterCryptoKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, origin, other)
 }
+
+func TestNewCryptoKeyTOCoRIM_bad(t *testing.T) {
+	for _, tc := range []struct {
+		title  string
+		origin CryptoKey
+		err    string
+	}{
+		{
+			title: "bad key type",
+			origin: CryptoKey{
+				KeyType: "foo",
+			},
+			err: "unexpected CryptoKey type",
+		},
+		{
+			title: "non UTF-8 key bytes",
+			origin: CryptoKey{
+				KeyType:  comid.PKIXBase64CertPathType,
+				KeyBytes: []byte{0xff},
+			},
+			err: "must be a valid UTF-8 string",
+		},
+	} {
+		t.Run(tc.title, func(t *testing.T) {
+			_, err := tc.origin.ToCoRIM()
+			assert.ErrorContains(t, err, tc.err)
+		})
+	}
+}

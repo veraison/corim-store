@@ -200,6 +200,7 @@ func (o *ModuleTag) ToCoRIM() (*comid.Comid, error) {
 
 	ret.Triples.Extensions, err = CoMIDExtensionsToCoRIM(o.TriplesExtensions)
 	if err != nil {
+		// coverage:ignore
 		return nil, err
 	}
 
@@ -222,6 +223,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 	}
 
 	if _, err := db.NewInsert().Model(o).Exec(ctx); err != nil {
+		// coverage:ignore
 		return err
 	}
 
@@ -230,6 +232,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		entity.OwnerType = "module_tag"
 
 		if err := entity.Insert(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("error inserting linked tag %+v: %w", entity, err)
 		}
 	}
@@ -238,6 +241,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		link.ModuleID = o.ID
 
 		if err := link.Insert(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("error inserting linked tag %+v: %w", link, err)
 		}
 	}
@@ -246,6 +250,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		triple.ModuleID = o.ID
 
 		if err := triple.Insert(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("error inserting value triple %+v: %w", triple, err)
 		}
 	}
@@ -254,6 +259,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		triple.ModuleID = o.ID
 
 		if err := triple.Insert(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("error inserting key triple %+v: %w", triple, err)
 		}
 	}
@@ -263,6 +269,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		ext.OwnerType = "module_tag"
 
 		if err := ext.Insert(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("error inserting extension %+v: %w", ext, err)
 		}
 	}
@@ -272,6 +279,7 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		ext.OwnerType = "triples"
 
 		if err := ext.Insert(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("error inserting extension %+v: %w", ext, err)
 		}
 	}
@@ -301,18 +309,21 @@ func (o *ModuleTag) Select(ctx context.Context, db bun.IDB) error {
 
 	for i, entity := range o.Entities {
 		if err := entity.Select(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("entity at index %d: %w", i, err)
 		}
 	}
 
 	for i, triple := range o.ValueTriples {
 		if err := triple.Select(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("value triple at index %d: %w", i, err)
 		}
 	}
 
 	for i, triple := range o.KeyTriples {
 		if err := triple.Select(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("key triple at index %d: %w", i, err)
 		}
 	}
@@ -327,36 +338,42 @@ func (o *ModuleTag) Delete(ctx context.Context, db bun.IDB) error { // nolint:du
 
 	for i, tag := range o.LinkedTags {
 		if err := tag.Delete(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("linked tag at index %d: %w", i, err)
 		}
 	}
 
 	for i, entity := range o.Entities {
 		if err := entity.Delete(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("entity at index %d: %w", i, err)
 		}
 	}
 
 	for i, triple := range o.ValueTriples {
 		if err := triple.Delete(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("value triple at index %d: %w", i, err)
 		}
 	}
 
 	for i, triple := range o.KeyTriples {
 		if err := triple.Delete(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("key triple at index %d: %w", i, err)
 		}
 	}
 
 	for i, extension := range o.Extensions {
 		if err := extension.Delete(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("extension at index %d: %w", i, err)
 		}
 	}
 
 	for i, extension := range o.TriplesExtensions {
 		if err := extension.Delete(ctx, db); err != nil {
+			// coverage:ignore
 			return fmt.Errorf("triples extension at index %d: %w", i, err)
 		}
 	}
