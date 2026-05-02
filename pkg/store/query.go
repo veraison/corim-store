@@ -184,7 +184,7 @@ func (o *EntityQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.D
 
 	addOrGroupWhereClause("name_type", o.nameTypes, false, query, dialect)
 	addOrGroupWhereClause("name", o.nameValues, false, query, dialect)
-	updateQueryWithEntries(o.names, query)
+	updateQueryWithEntries(o.names, query, dialect)
 
 	addOrGroupWhereClause("uri", o.uris, false, query, dialect)
 }
@@ -473,7 +473,7 @@ func (o *LinkedTagQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schem
 	addOrGroupWhereClause("linked_tag_id_type", o.linkedTagIDTypes, false, query, dialect)
 	addOrGroupWhereClause("linked_tag_id", o.linkedTagIDValues, false, query, dialect)
 	addOrGroupWhereClause("tag_relation", o.tagRelations, false, query, dialect)
-	updateQueryWithEntries(o.linkedTagIDs, query)
+	updateQueryWithEntries(o.linkedTagIDs, query, dialect)
 
 	addOrGroupWhereClause("module_id", o.moduleIDs, false, query, dialect)
 }
@@ -890,7 +890,7 @@ func (o *EnvironmentQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 
 	addOrGroupWhereClause("class_type", o.classIDTypes, false, query, dialect)
 	addOrGroupWhereClause("class_bytes", o.classIDBytes, o.Exact, query, dialect)
-	updateQueryWithEntries(o.classIDs, query)
+	updateQueryWithEntries(o.classIDs, query, dialect)
 
 	addOrGroupWhereClause("vendor", o.vendors, o.Exact, query, dialect)
 	addOrGroupWhereClause("model", o.models, o.Exact, query, dialect)
@@ -899,11 +899,11 @@ func (o *EnvironmentQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 
 	addOrGroupWhereClause("group_type", o.groupTypes, false, query, dialect)
 	addOrGroupWhereClause("group_bytes", o.groupBytes, o.Exact, query, dialect)
-	updateQueryWithEntries(o.groups, query)
+	updateQueryWithEntries(o.groups, query, dialect)
 
 	addOrGroupWhereClause("instance_type", o.instanceTypes, false, query, dialect)
 	addOrGroupWhereClause("instance_bytes", o.instanceBytes, o.Exact, query, dialect)
-	updateQueryWithEntries(o.instances, query)
+	updateQueryWithEntries(o.instances, query, dialect)
 }
 
 func (o *EnvironmentQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Environment, error) {
@@ -1006,7 +1006,7 @@ func (o *ClassSubquery) UpdateFromCoRIM(value *comid.Class) *ClassSubquery {
 func (o *ClassSubquery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect, exact bool) {
 	addOrGroupWhereClause("class_type", o.classIDTypes, false, query, dialect)
 	addOrGroupWhereClause("class_bytes", o.classIDBytes, exact, query, dialect)
-	updateQueryWithEntries(o.classIDs, query)
+	updateQueryWithEntries(o.classIDs, query, dialect)
 
 	addOrGroupWhereClause("vendor", o.vendors, exact, query, dialect)
 	addOrGroupWhereClause("model", o.models, exact, query, dialect)
@@ -1320,7 +1320,7 @@ func (o *TripleQuery[T, TT]) UpdateSelectQuery(query *bun.SelectQuery, dialect s
 
 	addOrGroupWhereClause("manifest_id_type", o.manifestIDTypes, false, query, dialect)
 	addOrGroupWhereClause("manifest_id", o.manifestIDValues, false, query, dialect)
-	updateQueryWithEntries(o.manifestIDs, query)
+	updateQueryWithEntries(o.manifestIDs, query, dialect)
 
 	if o.isActive != nil {
 		query.Where("is_active = ?", *o.isActive)
@@ -1584,7 +1584,7 @@ func (o *CryptoKeyQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schem
 
 	addOrGroupWhereClause("key_type", o.keyTypes, false, query, dialect)
 	addOrGroupWhereClause("key_bytes", o.keyBytes, false, query, dialect)
-	updateQueryWithEntries(o.keys, query)
+	updateQueryWithEntries(o.keys, query, dialect)
 }
 
 func (o *CryptoKeyQuery) Run(ctx context.Context, db bun.IDB) ([]*model.CryptoKey, error) {
@@ -1667,7 +1667,7 @@ func (o *DigestQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.D
 
 	addOrGroupWhereClause("alg_id", o.algIDs, false, query, dialect)
 	addOrGroupWhereClause("value", o.values, false, query, dialect)
-	updateQueryWithEntries(o.digests, query)
+	updateQueryWithEntries(o.digests, query, dialect)
 }
 
 func (o *DigestQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Digest, error) {
@@ -1852,7 +1852,7 @@ func (o *FlagQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dia
 	}
 
 	addOrGroupWhereClause("measurement_id", o.measurementIDs, false, query, dialect)
-	updateQueryWithEntries(o.entries, query)
+	updateQueryWithEntries(o.entries, query, dialect)
 }
 
 func (o *FlagQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Flag, error) {
@@ -1973,7 +1973,7 @@ func (o *MeasurementValueQuery) UpdateSelectQuery(query *bun.SelectQuery, dialec
 	addOrGroupWhereClause("value_text", o.valueTexts, false, query, dialect)
 	addOrGroupWhereClause("value_bytes", o.valueBytes, false, query, dialect)
 	addOrGroupWhereClause("value_int", o.valueInts, false, query, dialect)
-	updateQueryWithEntries(o.values, query)
+	updateQueryWithEntries(o.values, query, dialect)
 
 	addOrGroupWhereClause("measurement_id", o.measurementIDs, false, query, dialect)
 }
@@ -2178,7 +2178,7 @@ func (o *MeasurementQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 
 	addOrGroupWhereClause("key_type", o.mkeyTypes, false, query, dialect)
 	addOrGroupWhereClause("key_bytes", o.mkeyBytes, false, query, dialect)
-	updateQueryWithEntries(o.mkeys, query)
+	updateQueryWithEntries(o.mkeys, query, dialect)
 }
 
 func (o *MeasurementQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Measurement, error) {
@@ -2464,7 +2464,7 @@ func (o *ownedQuery) Owner(typ string, id int64) *ownedQuery {
 func (o *ownedQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
 	addOrGroupWhereClause("owner_id", o.ownerIDs, false, query, dialect)
 	addOrGroupWhereClause("owner_type", o.ownerTypes, false, query, dialect)
-	updateQueryWithEntries(o.owners, query)
+	updateQueryWithEntries(o.owners, query, dialect)
 }
 
 func (o *ownedQuery) IsEmpty() bool {
@@ -2642,14 +2642,14 @@ func (o *ManifestCommonQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect 
 
 	addOrGroupWhereClause("manifest_id_type", o.manifestIDTypes, false, query, dialect)
 	addOrGroupWhereClause("manifest_id", o.manifestIDValues, false, query, dialect)
-	updateQueryWithEntries(o.manifestIDs, query)
+	updateQueryWithEntries(o.manifestIDs, query, dialect)
 
 	addOrGroupWhereClause("profile_type", o.profileTypes, false, query, dialect)
 	addOrGroupWhereClause("profile", o.profileValues, false, query, dialect)
-	updateQueryWithEntries(o.profiles, query)
+	updateQueryWithEntries(o.profiles, query, dialect)
 
-	updateQueryWithEntries(o.timeAdded, query)
-	updateQueryWithEntries(o.validity, query)
+	updateQueryWithEntries(o.timeAdded, query, dialect)
+	updateQueryWithEntries(o.validity, query, dialect)
 }
 
 func (o *ManifestCommonQuery) IsEmpty() bool {
@@ -2711,7 +2711,7 @@ func (o *ModuleTagCommonQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect
 
 	addOrGroupWhereClause("module_tag_id_type", o.moduleTagIDTypes, false, query, dialect)
 	addOrGroupWhereClause("module_tag_id", o.moduleTagIDValues, false, query, dialect)
-	updateQueryWithEntries(o.moduleTagIDs, query)
+	updateQueryWithEntries(o.moduleTagIDs, query, dialect)
 
 	addOrGroupWhereClause("module_tag_version", o.moduleTagVersions, false, query, dialect)
 	addOrGroupWhereClause("language", o.languages, false, query, dialect)
@@ -2755,32 +2755,41 @@ type timePeriodQueryEntry struct {
 	optional   bool
 }
 
-func (o *timePeriodQueryEntry) UpdateQuery(whereFunc whereFunc) { // nolint:dupl
+func quote(column string, dialect schema.Dialect) string {
+	return fmt.Sprintf("%c%s%c", dialect.IdentQuote(), column, dialect.IdentQuote())
+}
+
+func (o *timePeriodQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) { // nolint:dupl
 	var queryText string
 	if o.lower != nil && o.upper != nil { // nolint:gocritic
 		if o.optional {
-			queryText = fmt.Sprintf(`("%s" IS NULL OR "%s" < ? ) AND ("%s" IS NULL OR "%s" > ?)`,
-				o.lowerField, o.lowerField,
-				o.upperField, o.upperField,
+			queryText = fmt.Sprintf(`(%s IS NULL OR %s < ? ) AND (%s IS NULL OR %s > ?)`,
+				quote(o.lowerField, dialect), quote(o.lowerField, dialect),
+				quote(o.upperField, dialect), quote(o.upperField, dialect),
 			)
 		} else {
-			queryText = fmt.Sprintf(`"%s" < ? AND "%s" > ?`, o.lowerField, o.upperField)
+			queryText = fmt.Sprintf(`%s < ? AND %s > ?`,
+				quote(o.lowerField, dialect), quote(o.upperField, dialect),
+			)
 		}
 
 		whereFunc(queryText, *o.lower, *o.upper)
 	} else if o.lower != nil {
 		if o.optional {
-			queryText = fmt.Sprintf(`"%s" IS NULL OR "%s" < ?`, o.lowerField, o.lowerField)
+			queryText = fmt.Sprintf(`%s IS NULL OR %s < ?`,
+				quote(o.lowerField, dialect), quote(o.lowerField, dialect),
+			)
 		} else {
-			queryText = fmt.Sprintf(`"%s" < ?`, o.lowerField)
+			queryText = fmt.Sprintf(`%s < ?`, quote(o.lowerField, dialect))
 		}
 
 		whereFunc(queryText, *o.lower)
 	} else if o.upper != nil {
 		if o.optional {
-			queryText = fmt.Sprintf(`"%s" IS NULL OR "%s" > ?`, o.upperField, o.upperField)
+			queryText = fmt.Sprintf(`%s IS NULL OR %s > ?`,
+				quote(o.upperField, dialect), quote(o.upperField, dialect))
 		} else {
-			queryText = fmt.Sprintf(`"%s" > ?`, o.upperField)
+			queryText = fmt.Sprintf(`%s > ?`, quote(o.upperField, dialect))
 		}
 
 		whereFunc(queryText, *o.upper)
@@ -2794,32 +2803,35 @@ type timePointQueryEntry struct {
 	optional bool
 }
 
-func (o *timePointQueryEntry) UpdateQuery(whereFunc whereFunc) { // nolint:dupl
+func (o *timePointQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) { // nolint:dupl
 	var queryText string
 	if o.lower != nil && o.upper != nil { // nolint:gocritic
 		if o.optional {
-			queryText = fmt.Sprintf(`("%s" IS NULL OR "%s" > ? ) OR ("%s" IS NULL OR "%s" < ?)`,
-				o.field, o.field,
-				o.field, o.field,
+			queryText = fmt.Sprintf(`(%s IS NULL OR %s > ? ) OR (%s IS NULL OR %s < ?)`,
+				quote(o.field, dialect), quote(o.field, dialect),
+				quote(o.field, dialect), quote(o.field, dialect),
 			)
 		} else {
-			queryText = fmt.Sprintf(`"%s" > ? AND "%s" < ?`, o.field, o.field)
+			queryText = fmt.Sprintf(`%s > ? AND %s < ?`,
+				quote(o.field, dialect), quote(o.field, dialect))
 		}
 
 		whereFunc(queryText, *o.lower, *o.upper)
 	} else if o.lower != nil {
 		if o.optional {
-			queryText = fmt.Sprintf(`"%s" IS NULL OR "%s" > ?`, o.field, o.field)
+			queryText = fmt.Sprintf(`%s IS NULL OR %s > ?`,
+				quote(o.field, dialect), quote(o.field, dialect))
 		} else {
-			queryText = fmt.Sprintf(`"%s" > ?`, o.field)
+			queryText = fmt.Sprintf(`%s > ?`, quote(o.field, dialect))
 		}
 
 		whereFunc(queryText, *o.lower)
 	} else if o.upper != nil {
 		if o.optional {
-			queryText = fmt.Sprintf(`"%s" IS NULL OR "%s" < ?`, o.field, o.field)
+			queryText = fmt.Sprintf(`%s IS NULL OR %s < ?`,
+				quote(o.field, dialect), quote(o.field, dialect))
 		} else {
-			queryText = fmt.Sprintf(`"%s" < ?`, o.field)
+			queryText = fmt.Sprintf(`%s < ?`, quote(o.field, dialect))
 		}
 
 		whereFunc(queryText, *o.upper)
@@ -2831,7 +2843,7 @@ type nameQueryEntry struct {
 	value string
 }
 
-func (o *nameQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *nameQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("name_type = ? AND name = ?", o.typ, o.value)
 }
 
@@ -2840,7 +2852,7 @@ type manifestIDQueryEntry struct {
 	id  string
 }
 
-func (o *manifestIDQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *manifestIDQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("manifest_id_type = ? AND manifest_id = ?", o.typ, o.id)
 }
 
@@ -2849,7 +2861,7 @@ type moduleTagIDQueryEntry struct {
 	id  string
 }
 
-func (o *moduleTagIDQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *moduleTagIDQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("module_tag_id_type = ? AND module_tag_id = ?", o.typ, o.id)
 }
 
@@ -2858,7 +2870,7 @@ type linkedTagIDQueryEntry struct {
 	id  string
 }
 
-func (o *linkedTagIDQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *linkedTagIDQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("linked_tag_id_type = ? AND linked_tag_id = ?", o.typ, o.id)
 }
 
@@ -2867,7 +2879,7 @@ type profileQueryEntry struct {
 	value string
 }
 
-func (o *profileQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *profileQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("profile_type = ? AND profile = ?", o.typ, o.value)
 }
 
@@ -2876,7 +2888,7 @@ type ownerQueryEntry struct {
 	id  int64
 }
 
-func (o *ownerQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *ownerQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("owner_type = ? AND owner_id = ?", o.typ, o.id)
 }
 
@@ -2885,7 +2897,7 @@ type keyQueryEntry struct {
 	bytes []byte
 }
 
-func (o *keyQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *keyQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("key_type = ? AND key_bytes = ?", o.typ, o.bytes)
 }
 
@@ -2894,7 +2906,7 @@ type digestQueryEntry struct {
 	value []byte
 }
 
-func (o *digestQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *digestQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("alg_id = ? AND value = ?", o.algID, o.value)
 }
 
@@ -2903,7 +2915,7 @@ type classIDQueryEntry struct {
 	value []byte
 }
 
-func (o *classIDQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *classIDQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("class_type = ? AND class_bytes = ?", o.typ, o.value)
 }
 
@@ -2912,7 +2924,7 @@ type instanceQueryEntry struct {
 	value []byte
 }
 
-func (o *instanceQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *instanceQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("instance_type = ? AND instance_bytes = ?", o.typ, o.value)
 }
 
@@ -2921,7 +2933,7 @@ type groupQueryEntry struct {
 	value []byte
 }
 
-func (o *groupQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *groupQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("group_type = ? AND group_bytes = ?", o.typ, o.value)
 }
 
@@ -2965,7 +2977,7 @@ func newValueQueryEntry(typ string, value any) (*valueQueryEntry, error) {
 	return ret, nil
 }
 
-func (o *valueQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *valueQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	if o.valueBytes != nil { // nolint:gocritic
 		whereFunc("value_type = ? AND value_bytes = ?", o.valueType, *o.valueBytes)
 	} else if o.valueText != nil {
@@ -2980,19 +2992,19 @@ type flagQueryEntry struct {
 	value     bool
 }
 
-func (o *flagQueryEntry) UpdateQuery(whereFunc whereFunc) {
+func (o *flagQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
 	whereFunc("code_point = ? AND value = ?", o.codePoint, o.value)
 }
 
 type queryEntry interface {
-	UpdateQuery(whereFunc whereFunc)
+	UpdateQuery(whereFunc whereFunc, dialect schema.Dialect)
 }
 
-func updateQueryWithEntries[T queryEntry](entries []T, query *bun.SelectQuery) {
+func updateQueryWithEntries[T queryEntry](entries []T, query *bun.SelectQuery, dialect schema.Dialect) {
 	if len(entries) != 0 {
 		query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
 			for _, value := range entries {
-				value.UpdateQuery(q.WhereOr)
+				value.UpdateQuery(q.WhereOr, dialect)
 			}
 
 			return q

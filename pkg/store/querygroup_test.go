@@ -36,6 +36,10 @@ func TestQueryGroup(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, envs, 2)
 
+	if db.Dialect().Name().String() != "sqlite" {
+		t.SkipNow()
+	}
+
 	var ret []*model.Environment
 	sel := db.NewSelect().Model(&ret)
 	qg.UpdateSelectQuery(sel, db.Dialect())

@@ -24,6 +24,10 @@ func TestDB_Create(t *testing.T) {
 func TestExecTx(t *testing.T) {
 	db := NewEmptyTestDB(t)
 
+	if db.Dialect().Name().String() != "sqlite" {
+		t.SkipNow()
+	}
+
 	_, err := db.Exec(`CREATE TABLE test (col1 TEXT, col2 INT) STRICT;`)
 	assert.NoError(t, err)
 

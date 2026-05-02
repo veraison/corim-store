@@ -55,7 +55,7 @@ func TestModuleTagEntry(t *testing.T) {
 		},
 	}
 
-	testEpoch := time.Unix(0, 0)
+	testEpoch := time.Unix(0, 0).UTC()
 	origin := corim.NewUnsignedCorim().
 		SetID("bar").
 		SetProfile("1.2.3.4").
@@ -66,7 +66,7 @@ func TestModuleTagEntry(t *testing.T) {
 			HashValue: testHashBytes,
 		}).
 		AddEntity("zot", nil, corim.RoleManifestCreator).
-		SetRimValidity(time.Now(), &testEpoch)
+		SetRimValidity(time.Now().UTC(), &testEpoch)
 
 	mt, err := NewManifestFromCoRIM(origin)
 	require.NoError(t, err)
