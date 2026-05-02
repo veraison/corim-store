@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/veraison/corim-store/pkg/db"
-	"github.com/veraison/corim-store/pkg/test"
 )
 
 func TestRegisterModel(t *testing.T) {
@@ -17,7 +16,7 @@ func TestRegisterModel(t *testing.T) {
 }
 
 func TestResetModels(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	digest := NewDigest(1, []byte{0xde, 0xad, 0xbe, 0xef})
 	ctx := context.Background()
 	query := db.NewSelect().TableExpr("digests").ColumnExpr("id")

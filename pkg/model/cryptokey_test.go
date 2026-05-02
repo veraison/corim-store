@@ -7,13 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 )
 
 func TestCrypoKey_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	testCases := []struct {
@@ -75,7 +74,7 @@ func TestCrypoKey_round_trip(t *testing.T) {
 
 func TestCryptoKey_Select(t *testing.T) {
 	var ck CryptoKey
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := ck.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -90,7 +89,7 @@ func TestCryptoKey_Select(t *testing.T) {
 
 func TestCryptoKey_Delete(t *testing.T) {
 	var ck CryptoKey
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := ck.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

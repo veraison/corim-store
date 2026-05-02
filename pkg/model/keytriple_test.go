@@ -6,13 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
+
 	"github.com/veraison/corim/comid"
 )
 
 func TestKeyTriple_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	testCases := []struct {
@@ -145,7 +145,7 @@ func TestKeyTriple_CRUD(t *testing.T) {
 		},
 	}
 
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := kt.Insert(context.Background(), db)
 	assert.NoError(t, err)
@@ -162,7 +162,7 @@ func TestKeyTriple_CRUD(t *testing.T) {
 
 func TestKeyTriple_Select(t *testing.T) {
 	var kt KeyTriple
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := kt.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -177,7 +177,7 @@ func TestKeyTriple_Select(t *testing.T) {
 
 func TestKeyTriple_Delete(t *testing.T) {
 	var kt KeyTriple
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := kt.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

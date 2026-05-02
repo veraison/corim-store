@@ -6,14 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/swid"
 )
 
 func TestModuleTag_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	testEntities := comid.NewEntities()
@@ -287,7 +286,7 @@ func TestModuleTag_ToCoRIM(t *testing.T) {
 }
 
 func TestModuleTag_Insert_extensions(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	testType := comid.BytesType
 	testBytes := comid.MustHexDecode(t, "deadbeefdeadbeefdeadbeefdeadbeef")
 	mt := ModuleTag{
@@ -320,7 +319,7 @@ func TestModuleTag_Insert_extensions(t *testing.T) {
 
 func TestModuleTag_Select(t *testing.T) {
 	var mt ModuleTag
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := mt.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -332,7 +331,7 @@ func TestModuleTag_Select(t *testing.T) {
 
 func TestModuleTag_Delete(t *testing.T) {
 	var mt ModuleTag
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := mt.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

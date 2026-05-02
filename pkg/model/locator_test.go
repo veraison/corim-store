@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/veraison/corim-store/pkg/test"
 )
 
 func TestLocator_conversion(t *testing.T) {
@@ -29,7 +28,7 @@ func TestLocator_conversion(t *testing.T) {
 
 func TestLocator_Select(t *testing.T) {
 	var loc Locator
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := loc.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -48,7 +47,7 @@ func TestLocator_model_methods(t *testing.T) {
 
 func TestLocator_Delete(t *testing.T) {
 	var loc Locator
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := loc.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

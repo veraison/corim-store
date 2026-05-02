@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 )
 
@@ -22,7 +21,7 @@ func TestToken_CRUD(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err = token.Insert(ctx, db)
 	assert.NoError(t, err)

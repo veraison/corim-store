@@ -17,9 +17,6 @@ ignored_packages = [
     # Migrations are executed when constructed the test DB, and so are unit-tested
     # by tests outside the sub-package.
     'github.com/veraison/corim-store/pkg/migrations',
-
-    # Test helpers only; does not contain production code.
-    'github.com/veraison/corim-store/pkg/test',
 ]
 ignored_packages.extend(os.getenv('IGNORE_COVERAGE', '').strip().split())
 

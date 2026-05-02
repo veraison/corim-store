@@ -5,13 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 )
 
 func TestExtensionValue_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 	testStr := "acme"
 
@@ -73,7 +72,7 @@ func TestExtensionValue_round_trip(t *testing.T) {
 
 func TestExtensionValue_Select(t *testing.T) {
 	var ev ExtensionValue
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := ev.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -88,7 +87,7 @@ func TestExtensionValue_Select(t *testing.T) {
 
 func TestExtensionValue_Delete(t *testing.T) {
 	var ev ExtensionValue
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := ev.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/extensions"
 )
@@ -117,7 +116,7 @@ func TestFlags_round_trip(t *testing.T) {
 
 func TestFlag_Select(t *testing.T) {
 	var digest Flag
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := digest.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -129,7 +128,7 @@ func TestFlag_Select(t *testing.T) {
 
 func TestFlag_Delete(t *testing.T) {
 	var flag Flag
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := flag.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

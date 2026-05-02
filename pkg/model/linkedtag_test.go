@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/swid"
 )
@@ -49,7 +48,7 @@ func TestLinkedTag_conversion(t *testing.T) {
 
 func TestLinkedTag_Select(t *testing.T) {
 	var tag LinkedTag
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := tag.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -67,7 +66,7 @@ func TestLinkedTag_model_methods(t *testing.T) {
 
 func TestLinkedTag_Delete(t *testing.T) {
 	var tag LinkedTag
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := tag.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
