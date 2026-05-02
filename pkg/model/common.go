@@ -70,5 +70,11 @@ func RegisterModels(db *bun.DB) {
 }
 
 func ResetModels(ctx context.Context, db *bun.DB) error {
-	return db.ResetModel(ctx, tableModels...)
+	for _, table := range tableModels {
+		if _, err := db.NewTruncateTable().Model(table).Exec(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
