@@ -17,10 +17,6 @@ GOIGNORECOV_VERSION = v0.6.2
 GOIGNORECOV = $(TOPDIR)/tools-bin/go-ignore-cov
 GOIGNORECOV_STAMP = $(TOPDIR)/tools-bin/go-ignore-cov-$(GOIGNORECOV_VERSION).stamp
 
-ifeq ($(VERBOSE),1)
-	TEST_ARGS = -v -args -trace
-endif
-
 export TEST_DB_FILE
 
 .PHONY: build
@@ -29,7 +25,20 @@ build:
 
 .PHONY: test
 test:
-	$(GO) test -tags=test ./... $(TEST_ARGS)
+	$(GO) test -p 1 -tags=test ./... $(TEST_ARGS)
+
+.PHONY: test-dbms
+test-dbms:
+	@if ! scripts/db-container.sh check-image; then \
+		echo "building DB container..."; \
+		scripts/db-container.sh build >/dev/null; \
+	fi
+	@scripts/db-container.sh start
+	@echo "PostgreSQL:"
+	@TEST_DBMS=postgres $(MAKE) -s test
+	@echo "MariaDB:"
+	@TEST_DBMS=mariadb $(MAKE) -s test
+	@scripts/db-container.sh stop
 
 .PHONY: integ-test
 integ-test:
@@ -84,10 +93,10 @@ Targets:
     build:
         Build the project.
     test:
-        Run unit tests. Use VERBOSE=1 for SQL traces. Set TEST_DB_FILE to
-        specify the path for the sqlite DB file to be used for tests (by default
-        in-memory DB is used). Placeholder sequence @test@ inside TEST_DB_FILE
-	will be replace by the name of the test.
+	Run unit tests. Set TEST_DB_FILE to specify the path for the sqlite DB
+	file to be used for tests (by default in-memory DB is used).
+	Placeholder sequence @test@ inside TEST_DB_FILE will be replace by the
+	name of the test.
     integ-test:
         Run integration tests. These rely on a Docker container running database
         servers.

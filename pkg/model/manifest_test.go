@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func TestManifest_round_trip(t *testing.T) {
 				}),
 		},
 	}
-	testEpoch := time.Unix(0, 0)
+	testEpoch := time.Unix(0, 0).UTC()
 	testCases := []struct {
 		title string
 		man   *corim.UnsignedCorim
@@ -76,7 +77,7 @@ func TestManifest_round_trip(t *testing.T) {
 					HashValue: testHashBytes,
 				}).
 				AddEntity("zot", nil, corim.RoleManifestCreator).
-				SetRimValidity(time.Now(), &testEpoch),
+				SetRimValidity(time.Now().UTC(), &testEpoch),
 		},
 		{
 			title: "ok UUID ID/URI profile",
@@ -84,7 +85,7 @@ func TestManifest_round_trip(t *testing.T) {
 				SetID(uuid.UUID(comid.TestUUID)).
 				SetProfile("http://example.com").
 				AddComid(&testComid).
-				SetRimValidity(time.Now(), &testEpoch),
+				SetRimValidity(time.Now().UTC(), &testEpoch),
 		},
 		{
 			title: "nok CoSWID tag",
@@ -320,7 +321,7 @@ func TestManifest_Insert(t *testing.T) {
 	testCases := []struct {
 		title    string
 		manifest Manifest
-		err      string
+		err      map[string]string
 	}{
 		{
 			title: "ok manifest with extensions",
@@ -346,7 +347,11 @@ func TestManifest_Insert(t *testing.T) {
 		{
 			title:    "nok invalid manifest",
 			manifest: Manifest{},
-			err:      "manifest ID not set",
+			err: map[string]string{
+				"mysql":    "manifest id not set",
+				"postgres": "manifest id not set",
+				"sqlite":   "manifest id not set",
+			},
 		},
 		{
 			title: "nok entities insert error",
@@ -361,7 +366,11 @@ func TestManifest_Insert(t *testing.T) {
 				},
 				ModuleTags: []*ModuleTag{&testModuleTag},
 			},
-			err: "UNIQUE constraint failed: entities.id",
+			err: map[string]string{
+				"mysql":    "duplicate entry",
+				"postgres": "unique constraint",
+				"sqlite":   "unique constraint",
+			},
 		},
 		{
 			title: "nok dependent RIMs insert error",
@@ -371,7 +380,11 @@ func TestManifest_Insert(t *testing.T) {
 				DependentRIMs:  []*Locator{{ID: 1}},
 				ModuleTags:     []*ModuleTag{&testModuleTag},
 			},
-			err: "UNIQUE constraint failed: locators.id",
+			err: map[string]string{
+				"mysql":    "duplicate entry",
+				"postgres": "unique constraint",
+				"sqlite":   "unique constraint",
+			},
 		},
 		{
 			title: "nok duplicate database ID",
@@ -381,7 +394,11 @@ func TestManifest_Insert(t *testing.T) {
 				ManifestID:     "foo",
 				ModuleTags:     []*ModuleTag{&testModuleTag},
 			},
-			err: "UNIQUE constraint failed: manifests.id",
+			err: map[string]string{
+				"mysql":    "duplicate entry",
+				"postgres": "unique constraint",
+				"sqlite":   "unique constraint",
+			},
 		},
 	}
 
@@ -393,8 +410,11 @@ func TestManifest_Insert(t *testing.T) {
 			testModuleTag.ValueTriples[0].Measurements[0].ID = 0
 
 			err := tc.manifest.Insert(context.Background(), db)
-			if tc.err != "" {
-				assert.ErrorContains(t, err, tc.err)
+			if tc.err != nil {
+				assert.Contains(t,
+					strings.ToLower(err.Error()),
+					tc.err[db.Dialect().Name().String()],
+				)
 			} else {
 				assert.NoError(t, err)
 			}

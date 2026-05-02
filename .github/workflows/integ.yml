@@ -28,6 +28,9 @@ jobs:
         fetch-depth: 1
     - name: Build project
       run: make
-    - name: Run tests
+    - name: Run unit tests
+      run: |
+        make test-dbms
+    - name: Run integration tests
       run: |
         make integ-test

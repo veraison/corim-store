@@ -893,6 +893,7 @@ func (o *Store) Clear() error {
 // function to aggregate the specified column (must be TEXT) into a
 // comma-separated list.
 func (o *Store) StringAggregatorExpr(columnName string) string {
+	// coverage:ignore
 	dialect := o.DB.Dialect().Name().String()
 	return StringAggregatorExprForDialect(dialect, columnName)
 }
@@ -900,6 +901,7 @@ func (o *Store) StringAggregatorExpr(columnName string) string {
 // ConcatExpr returns dialect-specific expression concatenated provided
 // strings.
 func (o *Store) ConcatExpr(tokens ...string) string {
+	// coverage:ignore
 	dialect := o.DB.Dialect().Name().String()
 	return ConcatExprForDialect(dialect, tokens...)
 }
@@ -907,6 +909,7 @@ func (o *Store) ConcatExpr(tokens ...string) string {
 // HexExpr returns a dialect-specific expression to perform hex encoding
 // on the specified column.
 func (o *Store) HexExpr(columnName string) string {
+	// coverage:ignore
 	dialect := o.DB.Dialect().Name().String()
 	return HexExprForDialect(dialect, columnName)
 }

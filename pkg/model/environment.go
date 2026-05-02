@@ -10,6 +10,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/schema"
 	"github.com/veraison/corim/comid"
 )
 
@@ -273,7 +274,7 @@ func (o *Environment) Insert(ctx context.Context, db bun.IDB) error {
 	}
 
 	query := db.NewSelect().Model(o)
-	err := UpdateSelectQueryFromEnvironment(query, o, true).Scan(ctx)
+	err := UpdateSelectQueryFromEnvironment(query, o, true, db.Dialect()).Scan(ctx)
 	if err == sql.ErrNoRows {
 		_, err = db.NewInsert().Model(o).Exec(ctx)
 	}
@@ -417,6 +418,7 @@ func UpdateSelectQueryFromEnvironment(
 	query *bun.SelectQuery,
 	env *Environment,
 	exact bool,
+	dialect schema.Dialect,
 ) *bun.SelectQuery {
 	if env.ClassType != nil {
 		query.Where("class_type = ?", env.ClassType)
@@ -472,10 +474,11 @@ func UpdateSelectQueryFromEnvironment(
 		query.Where("layer IS NULL")
 	}
 
+	quote := dialect.IdentQuote()
 	if env.Index != nil {
-		query.Where("\"index\" = ?", env.Index)
+		query.Where(fmt.Sprintf("%cindex%c = ?", quote, quote), env.Index)
 	} else if exact {
-		query.Where("\"index\" IS NULL")
+		query.Where(fmt.Sprintf("%cindex%c IS NULL", quote, quote))
 	}
 
 	return query

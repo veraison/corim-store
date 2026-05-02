@@ -256,16 +256,14 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 }
 
 func TestStore_StringAggregatorExpr(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
-	require.NoError(t, err)
-
-	ret := store.StringAggregatorExpr("foo")
-	assert.Equal(t, "GROUP_CONCAT(foo, ', ')", ret)
-
 	testCases := []struct {
 		title    string
 		expected string
 	}{
+		{
+			title:    "sqlite",
+			expected: "GROUP_CONCAT(foo, ', ')",
+		},
 		{
 			title:    "mysql",
 			expected: "GROUP_CONCAT(foo SEPARATOR ', ')",
@@ -287,16 +285,14 @@ func TestStore_StringAggregatorExpr(t *testing.T) {
 }
 
 func TestStore_ConcatExpr(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
-	require.NoError(t, err)
-
-	ret := store.ConcatExpr("foo", "bar")
-	assert.Equal(t, "foo || bar", ret)
-
 	testCases := []struct {
 		title    string
 		expected string
 	}{
+		{
+			title:    "sqlite",
+			expected: "foo || bar",
+		},
 		{
 			title:    "mysql",
 			expected: "CONCAT(foo, bar)",
@@ -318,16 +314,14 @@ func TestStore_ConcatExpr(t *testing.T) {
 }
 
 func TestStore_HexExpr(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
-	require.NoError(t, err)
-
-	ret := store.HexExpr("foo")
-	assert.Equal(t, "hex(foo)", ret)
-
 	testCases := []struct {
 		title    string
 		expected string
 	}{
+		{
+			title:    "sqlite",
+			expected: "hex(foo)",
+		},
 		{
 			title:    "mysql",
 			expected: "hex(foo)",
