@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
 	"github.com/veraison/corim/extensions"
@@ -34,7 +33,7 @@ func TestEntity_comid_roundtrip(t *testing.T) {
 	entity, err := NewCoMIDEntityFromCoRIM(origin)
 	assert.NoError(t, err)
 
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	err = entity.Insert(context.Background(), db)
 	assert.NoError(t, err)
 
@@ -89,7 +88,7 @@ func TestEntity_corim_roundtrip(t *testing.T) {
 	entity, err := NewCoRIMEntityFromCoRIM(origin)
 	assert.NoError(t, err)
 
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	err = entity.Insert(context.Background(), db)
 	assert.NoError(t, err)
 

@@ -9,14 +9,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/swid"
 )
 
 func TestMeasurement_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	meas, err := comid.NewUUIDMeasurement(comid.TestUUID)
@@ -217,7 +216,7 @@ func TestMeasurement_convert(t *testing.T) {
 }
 
 func TestMeasurement_Delete(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	testCases := []struct {
 		title string
 		mea   Measurement
@@ -425,7 +424,7 @@ func TestMeasurement_model_methods(t *testing.T) {
 }
 
 func TestSelectMeasurement_bad(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	ctx := context.Background()
 
 	_, err := SelectMeasurement(ctx, db, 1)
@@ -441,7 +440,7 @@ func TestMeasurementValueEntry_model_methods(t *testing.T) {
 
 func TestMeasurementValueEntry_Select(t *testing.T) {
 	var mve MeasurementValueEntry
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	ctx := context.Background()
 
 	err := mve.Select(ctx, db)
@@ -454,7 +453,7 @@ func TestMeasurementValueEntry_Select(t *testing.T) {
 
 func TestMeasurementValueEntry_Delete(t *testing.T) {
 	var mve MeasurementValueEntry
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := mve.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

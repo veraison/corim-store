@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
 	"github.com/veraison/swid"
@@ -17,7 +16,7 @@ import (
 
 func TestManifest_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	testEntities := comid.NewEntities()
@@ -306,7 +305,7 @@ func TestManifest_SetActive(t *testing.T) {
 }
 
 func TestManifest_Insert(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	testModuleTag := ModuleTag{
 		TagIDType: StringTagID,
 		TagID:     "bar",
@@ -411,7 +410,7 @@ func TestManifest_Select_nok(t *testing.T) {
 
 func TestManifest_Delete(t *testing.T) {
 	var manifest Manifest
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := manifest.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -434,7 +433,7 @@ func TestNewManifestFromCoRIM_nil_input(t *testing.T) {
 }
 
 func TestSelectManifest_bad(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	_, err := SelectManifest(context.Background(), db, 1)
 	assert.ErrorContains(t, err, "no rows")
 }

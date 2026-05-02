@@ -6,14 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/swid"
 )
 
 func TestValueTriple_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	testSvn, err := comid.NewTaggedSVN(42)
@@ -131,7 +130,7 @@ func TestValueTriple_Validate(t *testing.T) {
 
 func TestValueTriple_Delete(t *testing.T) {
 	var vt ValueTriple
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := vt.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

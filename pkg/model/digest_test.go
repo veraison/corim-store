@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/veraison/corim-store/pkg/test"
 )
 
 func TestDigest_Select(t *testing.T) {
 	var digest Digest
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := digest.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -25,7 +24,7 @@ func TestDigest_Select(t *testing.T) {
 
 func TestDigest_Delete(t *testing.T) {
 	var digest Digest
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := digest.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

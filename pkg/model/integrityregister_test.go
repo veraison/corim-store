@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/swid"
 )
@@ -71,7 +70,7 @@ func TestIntegrityRegistersToCoRIM_bad(t *testing.T) {
 
 func TestIntegrityRegister_Select(t *testing.T) {
 	var reg IntegrityRegister
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := reg.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -86,7 +85,7 @@ func TestIntegrityRegister_Select(t *testing.T) {
 
 func TestIntegrityRegister_Delete(t *testing.T) {
 	var reg IntegrityRegister
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := reg.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

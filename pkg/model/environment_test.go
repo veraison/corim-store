@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim/comid"
 )
 
@@ -98,7 +97,7 @@ func (o IntGroup) Bytes() []byte {
 
 func TestEnvironment_round_trip(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	instanceFactory := func(v any) (*comid.Instance, error) {
@@ -345,7 +344,7 @@ func TestEnvironment_Validate(t *testing.T) {
 
 func TestEnvironment_uniqueness(t *testing.T) {
 	ctx := context.Background()
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	testVendor := "acme"
@@ -382,7 +381,7 @@ func TestEnvironment_uniqueness(t *testing.T) {
 
 func TestEnvironment_Select(t *testing.T) {
 	var env Environment
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := env.Select(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
@@ -397,7 +396,7 @@ func TestEnvironment_Select(t *testing.T) {
 
 func TestEnvironment_DeleteIfOrphaned(t *testing.T) {
 	var env Environment
-	db := test.NewTestDB(t)
+	db := NewTestDB(t)
 
 	err := env.DeleteIfOrphaned(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")

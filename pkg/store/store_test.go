@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/veraison/corim-store/pkg/model"
-	"github.com/veraison/corim-store/pkg/test"
 	"github.com/veraison/corim-store/pkg/util"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
@@ -193,7 +192,7 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 	manifest.Label = "label"
 	manifest.SetActive(true)
 
-	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
+	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
 	require.NoError(t, err)
 
 	err = store.AddManifest(manifest)
@@ -257,7 +256,7 @@ func TestStore_Manifest_CRUD(t *testing.T) {
 }
 
 func TestStore_StringAggregatorExpr(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
+	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
 	require.NoError(t, err)
 
 	ret := store.StringAggregatorExpr("foo")
@@ -288,7 +287,7 @@ func TestStore_StringAggregatorExpr(t *testing.T) {
 }
 
 func TestStore_ConcatExpr(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
+	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
 	require.NoError(t, err)
 
 	ret := store.ConcatExpr("foo", "bar")
@@ -319,7 +318,7 @@ func TestStore_ConcatExpr(t *testing.T) {
 }
 
 func TestStore_HexExpr(t *testing.T) {
-	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
+	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
 	require.NoError(t, err)
 
 	ret := store.HexExpr("foo")
@@ -386,7 +385,7 @@ func TestStore_Digest(t *testing.T) {
 		},
 	}
 
-	store, err := OpenWithDB(context.Background(), test.NewTestDB(t))
+	store, err := OpenWithDB(context.Background(), model.NewTestDB(t))
 	require.NoError(t, err)
 
 	for _, tc := range testCases {
@@ -552,7 +551,7 @@ func TestStore_transactions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, triples, 1)
 
-	store, err = OpenWithDB(context.Background(), test.NewTestDB(t))
+	store, err = OpenWithDB(context.Background(), model.NewTestDB(t))
 	require.NoError(t, err)
 
 	bytes, err := os.ReadFile("../../sample/corim/unsigned-cca-ref-plat.cbor")
@@ -585,7 +584,7 @@ func TestStore_transactions(t *testing.T) {
 }
 
 func TestStore_VerifyAndAddBytes(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := model.NewTestDB(t)
 	store, err := OpenWithDB(context.Background(), db)
 	assert.NoError(t, err)
 	defer func() { assert.NoError(t, store.Close()) }()
@@ -620,7 +619,7 @@ func TestStore_VerifyAndAddBytes(t *testing.T) {
 }
 
 func TestStore_AddToken(t *testing.T) {
-	db := test.NewTestDB(t)
+	db := model.NewTestDB(t)
 	store, err := OpenWithDB(context.Background(), db)
 	assert.NoError(t, err)
 	defer func() { assert.NoError(t, store.Close()) }()
@@ -680,7 +679,7 @@ func TestStore_QueryTokenModels(t *testing.T) {
 }
 
 func newStoreWithSampleCoRIMs(t *testing.T) *Store {
-	db := test.NewTestDB(t)
+	db := model.NewTestDB(t)
 	store, err := OpenWithDB(context.Background(), db)
 	assert.NoError(t, err)
 
