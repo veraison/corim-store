@@ -3,6 +3,8 @@ package util
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/x509"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,4 +114,79 @@ func TestCompositeKeyStore(t *testing.T) {
 	entry, err = ks.Get(nil)
 	assert.NoError(t, err)
 	assert.EqualValues(t, "baz", entry.PublicKey())
+}
+
+func TestX5ChainKeyStore(t *testing.T) {
+	signed := readCoRIM(t, "../../sample/corim/signed-cca-ref-plat.cose")
+	signedWithCert := readCoRIM(t, "../../sample/corim/signed-with-cert-cca-ref-plat.cose")
+
+	ks, err := NewX5ChainKeyStoreWithSystemCerts()
+	assert.NoError(t, err)
+
+	_, err = ks.Get(signedWithCert)
+	assert.ErrorIs(t, err, ErrKeyNotFound)
+
+	err = ks.AddCertFromPEMPath("../../sample/corim/certs/leaf.cert.pem")
+	assert.NoError(t, err)
+
+	ke, err := ks.Get(signedWithCert)
+	assert.NoError(t, err)
+	assert.NoError(t, signed.Verify(ke.PublicKey()))
+
+	_, err = ks.Get(signed)
+	assert.ErrorIs(t, err, ErrKeyNotFound)
+
+	err = ks.AddCertFromDERPath("../../sample/corim/certs/leaf.cert.der")
+	assert.NoError(t, err)
+
+	err = ks.AddCertFromDERPath("invalid")
+	assert.ErrorContains(t, err, "no such file")
+
+	err = ks.AddCertFromPEMPath("invalid")
+	assert.ErrorContains(t, err, "no such file")
+
+	err = ks.AddCertFromPEMPath("../../sample/corim/key.pub.pem")
+	assert.ErrorIs(t, err, ErrBadCert)
+
+	err = ks.AddCertFromPath("../../sample/corim/certs/leaf.cert.pem")
+	assert.NoError(t, err)
+
+	err = ks.AddCertFromPath("../../sample/corim/certs/leaf.cert.der")
+	assert.NoError(t, err)
+
+	err = ks.AddCertFromPath("../../sample/corim/key.pub.pem")
+	assert.ErrorIs(t, err, ErrBadCert)
+
+	err = ks.AddCertFromPath("invalid")
+	assert.ErrorContains(t, err, "no such file")
+
+	err = ks.AddCertFromBytes(nil)
+	assert.ErrorIs(t, err, ErrBadCert)
+	assert.ErrorContains(t, err, "empty")
+
+	err = ks.AddCertFromDERBytes(nil)
+	assert.ErrorIs(t, err, ErrBadCert)
+}
+
+func TestX5ChainKeyStore_SetCertPool(t *testing.T) {
+	sysPool, err := x509.SystemCertPool()
+	assert.NoError(t, err)
+
+	ks := NewX5ChainKeyStore(nil)
+	ks.SetCertPool(sysPool)
+	assert.Equal(t, sysPool, ks.rootCerts)
+}
+
+func readCoRIM(t *testing.T, path string) *corim.SignedCorim {
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	signed, err := corim.UnmarshalAndValidateSignedCorimFromCBOR(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return signed
 }

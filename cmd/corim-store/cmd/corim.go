@@ -238,24 +238,49 @@ func runDeleteCommand(cmd *cobra.Command, args []string) error {
 }
 
 func openKeyStore(flags *pflag.FlagSet) (util.KeyStore, error) {
+	x5chainStore, err := util.NewX5ChainKeyStoreWithSystemCerts()
+	if err != nil {
+		return nil, err
+	}
+
+	rootPaths, err := flags.GetStringArray("root-cert")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, path := range rootPaths {
+		if err := x5chainStore.AddCertFromPath(path); err != nil {
+			return nil, err
+		}
+	}
+
+	ret := util.NewCompositeKeyStore(x5chainStore)
+
 	keyPath, err := flags.GetString("key")
 	if err != nil {
 		return nil, err
 	}
 
-	if keyPath == "" {
-		return nil, nil
+	var ks util.KeyStore
+	if keyPath != "" {
+		ext := strings.ToLower(filepath.Ext(keyPath))
+		switch ext {
+		case ".jwk", ".json":
+			ks, err = util.KeyStoreFromJWKPath(keyPath)
+		case ".pem", ".pub", "":
+			ks, err = util.KeyStoreFromPEMPath(keyPath)
+		default:
+			err = fmt.Errorf("unrecognized key extension: %s", ext)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		ret.Add(ks)
 	}
 
-	ext := strings.ToLower(filepath.Ext(keyPath))
-	switch ext {
-	case ".jwk", ".json":
-		return util.KeyStoreFromJWKPath(keyPath)
-	case ".pem", ".pub", "":
-		return util.KeyStoreFromPEMPath(keyPath)
-	default:
-		return nil, fmt.Errorf("unrecognized key extension: %s", ext)
-	}
+	return ret, nil
 }
 
 func init() {
@@ -264,6 +289,8 @@ func init() {
 
 	addCmd.Flags().BoolP("activate", "a", false, "Activate added triples.")
 	addCmd.Flags().StringP("key", "k", "", "Public key use to verify signatures on signed CoRIMs.")
+	addCmd.Flags().StringArrayP("root-cert", "r", []string{},
+		"Root certificate used to validate x5chain COSE header (may be specified multiple times).")
 
 	deleteCmd.Flags().BoolP("corim", "C", false,
 		"force interpretation the positional argument as a path to CoRIM")
