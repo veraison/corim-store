@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/veraison/corim/comid"
@@ -14,7 +15,10 @@ import (
 	"github.com/veraison/go-cose"
 )
 
-var ErrKeyNotFound = errors.New("key not found")
+var (
+	ErrKeyNotFound = errors.New("key not found")
+	ErrBadCert     = errors.New("invalid X.509 cert")
+)
 
 // KeyStoreEntry encapsulates a key obtained from a KeyStore that may be used
 // to verify signatures on CoRIMs going into the store.
@@ -102,6 +106,16 @@ func (o *SingleKeyStore) Get(*corim.SignedCorim) (KeyStoreEntry, error) {
 // KeyStoreFromPublicKey returns a *SingleKeyStore that contains an entry for
 // the specified crypto.PublicKey.
 func KeyStoreFromPublicKey(pub crypto.PublicKey) (*SingleKeyStore, error) {
+	entry, err := KeyEntryFromPublicKey(pub)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SingleKeyStore{*entry}, nil
+}
+
+// KeyEntryFromPublicKey returns a KeyEntry for the specified crypto.PublicKey.
+func KeyEntryFromPublicKey(pub crypto.PublicKey) (*KeyEntry, error) {
 	coseKey, err := cose.NewKeyFromPublic(pub)
 	if err != nil {
 		return nil, err
@@ -113,7 +127,7 @@ func KeyStoreFromPublicKey(pub crypto.PublicKey) (*SingleKeyStore, error) {
 		return nil, err
 	}
 
-	return &SingleKeyStore{KeyEntry{pub, comid.MustNewCOSEKey(keyBytes)}}, nil
+	return &KeyEntry{pub, comid.MustNewCOSEKey(keyBytes)}, nil
 }
 
 // KeyStoreFromJWKPath returns a *SingleKeyStore that contains an entry for the
@@ -182,4 +196,143 @@ func KeyStoreFromPEMBytes(data []byte) (*SingleKeyStore, error) {
 	}
 
 	return KeyStoreFromPublicKey(pub)
+}
+
+// X5ChainKeyStore produces a KeyEntry for the key extracted from the CoRIM's
+// x5chain header, if one is set. The x5chain is verified beforehand.
+type X5ChainKeyStore struct {
+	rootCerts *x509.CertPool
+}
+
+// NewX5ChainKeyStore returns a new X5ChainKeyStore with the specified pool.
+func NewX5ChainKeyStore(pool *x509.CertPool) *X5ChainKeyStore {
+	if pool == nil {
+		pool = x509.NewCertPool()
+	}
+
+	return &X5ChainKeyStore{pool}
+}
+
+// NewX5ChainKeyStoreWithSystemCerts returns a new X5ChainKeyStore whose root certs are
+// populated from the system certificate pool.
+func NewX5ChainKeyStoreWithSystemCerts() (*X5ChainKeyStore, error) {
+	ret := &X5ChainKeyStore{}
+
+	var err error
+	ret.rootCerts, err = x509.SystemCertPool()
+	if err != nil {
+		// coverage:ignore
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// SetCertPool replaces the internal root cert pool with the provided one, and
+// returns the old pool.
+func (o *X5ChainKeyStore) SetCertPool(pool *x509.CertPool) *x509.CertPool {
+	old := o.rootCerts
+	o.rootCerts = pool
+	return old
+}
+
+// AddCertFromPath parses a certificate from the specified paths, attempting
+// to guess the format. ErrBadCert is returned if the format cannot be
+// established.
+func (o *X5ChainKeyStore) AddCertFromPath(path string) error {
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	return o.AddCertFromBytes(bytes)
+}
+
+// AddCertFromBytes parses a certificate from the specified buffers, attempting
+// to guess the format. ErrBadCert is returned if the format cannot be
+// established.
+func (o *X5ChainKeyStore) AddCertFromBytes(bytes []byte) error {
+	if len(bytes) == 0 {
+		return fmt.Errorf("%w: empty", ErrBadCert)
+	}
+
+	if bytes[0] == 0x30 {
+		return o.AddCertFromDERBytes(bytes)
+	}
+
+	trimmed := strings.TrimSpace(string(bytes))
+	if strings.HasPrefix(trimmed, "-----BEGIN CERTIFICATE-----") {
+		return o.AddCertFromPEMBytes(bytes)
+	}
+
+	return ErrBadCert
+}
+
+// AddCertFromPEMPath parses a certificate from the file at the specified path
+// and adds it to its root certs.
+func (o *X5ChainKeyStore) AddCertFromPEMPath(path string) error {
+	pem, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	return o.AddCertFromPEMBytes(pem)
+}
+
+// AddCertFromPEMBytes parses a certificate from the specified buffer and adds
+// it to its root certs.
+func (o *X5ChainKeyStore) AddCertFromPEMBytes(pem []byte) error {
+	if !o.rootCerts.AppendCertsFromPEM(pem) {
+		return ErrBadCert
+	}
+
+	return nil
+}
+
+// AddCertFromPEMPath parses a certificate from the file at the specified path
+// and adds it to its root certs.
+func (o *X5ChainKeyStore) AddCertFromDERPath(path string) error {
+	der, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	return o.AddCertFromDERBytes(der)
+}
+
+// AddCertFromDERBytes parses a certificate from the specified buffer and adds
+// it to its root certs.
+func (o *X5ChainKeyStore) AddCertFromDERBytes(der []byte) error {
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrBadCert, err)
+	}
+
+	o.rootCerts.AddCert(cert)
+
+	return nil
+}
+
+func (o *X5ChainKeyStore) Get(signed *corim.SignedCorim) (KeyStoreEntry, error) {
+	if signed.SigningCert == nil {
+		return nil, ErrKeyNotFound
+	}
+
+	intermediateCertPool := x509.NewCertPool()
+	for _, cert := range signed.IntermediateCerts {
+		intermediateCertPool.AddCert(cert)
+	}
+
+	verifyOpts := x509.VerifyOptions{
+		Roots:         o.rootCerts,
+		Intermediates: intermediateCertPool,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	_, err := signed.SigningCert.Verify(verifyOpts)
+	if err != nil {
+		return nil, fmt.Errorf("%w: cert chain verification failed: %w", ErrKeyNotFound, err)
+	}
+
+	return KeyEntryFromPublicKey(signed.SigningCert.PublicKey)
 }
