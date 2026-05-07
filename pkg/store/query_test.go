@@ -882,6 +882,40 @@ func TestEnvironmentQuery(t *testing.T) {
 	assert.Len(t, result, 2)
 }
 
+func TestEnvironmentQuery_exact(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"environments.yaml": environmentsFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	classIDBytes := comid.MustHexDecode(t, "1011121314151617101112131415161710111213141516171011121314151617")
+
+	query := NewEnvironmentQuery(true).
+		Class(func(cs *ClassSubquery) {
+			cs.ClassIDBytes(classIDBytes)
+		})
+	result, err := query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	classIDBytes = comid.MustHexDecode(t, "0001020304")
+	instanceIDBytes := comid.MustHexDecode(t, "10111213141516178011121314151617")
+	groupIDBytes := comid.MustHexDecode(t, "2021222324252627202122232425262720212223242526272021222324252627")
+
+	query = NewEnvironmentQuery(true).
+		ClassID("oid", classIDBytes).
+		Vendor("baz").
+		Vendor("qux").
+		Layer(2).
+		Index(1).
+		Instance("uuid", instanceIDBytes).
+		Group("bytes", groupIDBytes)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+}
+
 func TestKeyTripleQuery(t *testing.T) {
 	ctx := context.Background()
 	db := model.NewTestDBWithFixtures(t, map[string][]byte{

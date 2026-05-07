@@ -888,21 +888,28 @@ func (o *EnvironmentQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 		return q
 	})
 
+	// Override adding "<field> == NULL" for unspecified individual fields
+	// to the query below when these fields are being handled by composite
+	// entries (or, in case of class ID, sub-queries).
+	exactClass := len(o.classSubqueries) == 0 && len(o.classIDs) == 0 && o.Exact
+	exactInstance := len(o.instances) == 0 && o.Exact
+	exactGroup := len(o.groups) == 0 && o.Exact
+
 	addOrGroupWhereClause("class_type", o.classIDTypes, false, query, dialect)
-	addOrGroupWhereClause("class_bytes", o.classIDBytes, o.Exact, query, dialect)
+	addOrGroupWhereClause("class_bytes", o.classIDBytes, exactClass, query, dialect)
 	updateQueryWithEntries(o.classIDs, query, dialect)
 
-	addOrGroupWhereClause("vendor", o.vendors, o.Exact, query, dialect)
-	addOrGroupWhereClause("model", o.models, o.Exact, query, dialect)
-	addOrGroupWhereClause("layer", o.layers, o.Exact, query, dialect)
-	addOrGroupWhereClause("index", o.indexes, o.Exact, query, dialect)
+	addOrGroupWhereClause("vendor", o.vendors, exactClass, query, dialect)
+	addOrGroupWhereClause("model", o.models, exactClass, query, dialect)
+	addOrGroupWhereClause("layer", o.layers, exactClass, query, dialect)
+	addOrGroupWhereClause("index", o.indexes, exactClass, query, dialect)
 
 	addOrGroupWhereClause("group_type", o.groupTypes, false, query, dialect)
-	addOrGroupWhereClause("group_bytes", o.groupBytes, o.Exact, query, dialect)
+	addOrGroupWhereClause("group_bytes", o.groupBytes, exactGroup, query, dialect)
 	updateQueryWithEntries(o.groups, query, dialect)
 
 	addOrGroupWhereClause("instance_type", o.instanceTypes, false, query, dialect)
-	addOrGroupWhereClause("instance_bytes", o.instanceBytes, o.Exact, query, dialect)
+	addOrGroupWhereClause("instance_bytes", o.instanceBytes, exactInstance, query, dialect)
 	updateQueryWithEntries(o.instances, query, dialect)
 }
 
