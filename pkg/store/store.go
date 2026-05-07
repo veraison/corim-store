@@ -135,12 +135,12 @@ func (o *Store) VerifyAndAddBytes(buf []byte, keys util.KeyStore, label string, 
 		return fmt.Errorf("input must be a signed CoRIM")
 	}
 
-	var signed corim.SignedCorim
-	if err := signed.FromCOSE(buf); err != nil {
+	signed, err := corim.UnmarshalAndValidateSignedCorimFromCBOR(buf)
+	if err != nil {
 		return err
 	}
 
-	key, err := keys.Get(&signed)
+	key, err := keys.Get(signed)
 	if err != nil {
 		return err
 	}
@@ -207,8 +207,8 @@ func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 			return errors.New("CoRIM signature must be verified")
 		}
 
-		var signed corim.SignedCorim
-		if err := signed.FromCOSE(buf); err != nil {
+		signed, err := corim.UnmarshalAndValidateSignedCorimFromCBOR(buf)
+		if err != nil {
 			_ = txStore.Tx().Rollback()
 			return err
 		}
@@ -225,8 +225,8 @@ func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 			return err
 		}
 	} else if util.IsUnsignedCoRIM(buf) {
-		var unsigned corim.UnsignedCorim
-		if err := unsigned.FromCBOR(buf); err != nil {
+		unsigned, err := corim.UnmarshalAndValidateUnsignedCorimFromCBOR(buf)
+		if err != nil {
 			_ = txStore.Tx().Rollback()
 			return err
 		}
@@ -238,7 +238,7 @@ func (o *Store) AddBytes(buf []byte, label string, activate bool) error {
 			return err
 		}
 
-		if err := txStore.AddCoRIM(&unsigned, digest, label, activate); err != nil {
+		if err := txStore.AddCoRIM(unsigned, digest, label, activate); err != nil {
 			_ = txStore.Tx().Rollback()
 			return err
 		}
