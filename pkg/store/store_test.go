@@ -137,7 +137,7 @@ func TestStore_AddBytes(t *testing.T) {
 		{
 			title: "nok bad unsigned",
 			bytes: []byte{0xd9, 0x01, 0xf5, 0x01},
-			err:   "found Major Type 0",
+			err:   "cannot unmarshal positive integer into Go value of type struct",
 		},
 		{
 			title: "nok bad signed",
