@@ -9,7 +9,7 @@ import (
 )
 
 type KeyTripleEntry struct {
-	bun.BaseModel `bun:"table:key_triple_entries,alias:vte"`
+	bun.BaseModel `bun:"table:key_triple_entries,alias:kte"`
 
 	TripleDbID    int64 `bun:"triple_db_id"`
 	ManifestDbID  int64 `bun:"manifest_db_id"`
