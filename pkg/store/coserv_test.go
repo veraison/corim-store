@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,7 @@ func TestCoSERVService(t *testing.T) {
 	authority, err := comid.NewCryptoKeyTaggedBytes("test")
 	require.NoError(t, err)
 
-	service := NewCoSERVService(store, authority)
+	service := NewCoSERVService(store, authority, 5*time.Minute)
 
 	profile, err := eat.NewProfile("http://example.com")
 	require.NoError(t, err)
@@ -194,4 +195,59 @@ func TestCoSERVService(t *testing.T) {
 
 	err = service.UpdateCoSERV(cs)
 	assert.ErrorIs(t, err, ErrMeasuments)
+}
+
+func TestCoSERVService_expiry(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"cryptokeys.yaml":         cryptoKeysFixture,
+		"digests.yaml":            digestsFixture,
+		"manifests.yaml":          manifestsFixture,
+		"module_tags.yaml":        moduleTagsFixture,
+		"triples.yaml":            triplesFixture,
+		"environments.yaml":       environmentsFixture,
+		"measurements.yaml":       measurementsFixture,
+		"measurement_values.yaml": measurementValuesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	_, err := db.Exec("UPDATE manifests SET not_before = NULL, not_after = NULL")
+	require.NoError(t, err)
+
+	store, err := OpenWithDB(ctx, db)
+	require.NoError(t, err)
+
+	authority, err := comid.NewCryptoKeyTaggedBytes("test")
+	require.NoError(t, err)
+
+	service := NewCoSERVService(store, authority, 5*time.Minute)
+
+	profile, err := eat.NewProfile("http://example.com")
+	require.NoError(t, err)
+
+	name := "foo"
+
+	cs := &coserv.Coserv{
+		Profile: *profile,
+		Query: coserv.Query{
+			ArtifactType: coserv.ArtifactTypeReferenceValues,
+			EnvironmentSelector: *coserv.NewEnvironmentSelector().
+				AddClass(coserv.StatefulClass{
+					Class: comid.NewClassBytes([]byte{
+						0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+						0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+						0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+						0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+					}),
+					Measurements: comid.NewMeasurements().Add(&comid.Measurement{
+						Val: comid.Mval{Name: &name},
+					}),
+				}),
+			ResultType: coserv.ResultTypeCollectedArtifacts,
+		},
+	}
+
+	err = service.UpdateCoSERV(cs)
+	assert.NoError(t, err)
+	assert.NotNil(t, cs.Results.Expiry)
 }

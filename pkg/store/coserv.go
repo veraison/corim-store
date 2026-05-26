@@ -21,11 +21,15 @@ type CoSERVService struct {
 	// FallbackAuthority authority will be used when no other authority can
 	// be established for result data.
 	FallbackAuthority *comid.CryptoKey
+	// DefaultExpiry is the duration (from when a result is generated) that
+	// will be used to set the Expiry of the result if one could not be
+	// established from the manifests used to construct the result.
+	DefaultExpiry time.Duration
 }
 
 // NewCoSERVService creates a new instance of the service.
-func NewCoSERVService(store *Store, authority *comid.CryptoKey) *CoSERVService {
-	return &CoSERVService{store, authority}
+func NewCoSERVService(store *Store, authority *comid.CryptoKey, defaultExpiry time.Duration) *CoSERVService {
+	return &CoSERVService{store, authority, defaultExpiry}
 }
 
 // UpdateCoSERV runs the query inside the provided coserv.Coserv object and
@@ -134,6 +138,8 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 
 	if expiry != nil {
 		result.SetExpiry(*expiry)
+	} else {
+		result.SetExpiry(time.Now().Add(o.DefaultExpiry))
 	}
 
 	return result, nil
