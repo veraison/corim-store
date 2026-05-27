@@ -21,15 +21,18 @@ type CoSERVService struct {
 	// FallbackAuthority authority will be used when no other authority can
 	// be established for result data.
 	FallbackAuthority *comid.CryptoKey
-	// DefaultExpiry is the duration (from when a result is generated) that
-	// will be used to set the Expiry of the result if one could not be
-	// established from the manifests used to construct the result.
-	DefaultExpiry time.Duration
+	// MaxExpiry is the maximum limit on the expiry of a result set. When a
+	// result set is created, its expiry is set based on the validity of
+	// the CoRIMs involved in creating it. If that expiry is farther into the
+	// future than MaxExpiry (or if the CoRIMs did not specify validity),
+	// expiry will be set to MaxExpiry from the time of result set creation
+	// instead.
+	MaxExpiry time.Duration
 }
 
 // NewCoSERVService creates a new instance of the service.
-func NewCoSERVService(store *Store, authority *comid.CryptoKey, defaultExpiry time.Duration) *CoSERVService {
-	return &CoSERVService{store, authority, defaultExpiry}
+func NewCoSERVService(store *Store, authority *comid.CryptoKey, maxExpiry time.Duration) *CoSERVService {
+	return &CoSERVService{store, authority, maxExpiry}
 }
 
 // UpdateCoSERV runs the query inside the provided coserv.Coserv object and
@@ -137,9 +140,9 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 	}
 
 	if expiry != nil {
-		result.SetExpiry(*expiry)
+		result.SetExpiry(earliest(*expiry, time.Now().Add(o.MaxExpiry)))
 	} else {
-		result.SetExpiry(time.Now().Add(o.DefaultExpiry))
+		result.SetExpiry(time.Now().Add(o.MaxExpiry))
 	}
 
 	return result, nil
@@ -386,4 +389,12 @@ func updateExpiry(expiry **time.Time, value *time.Time) {
 	if value.Before(**expiry) {
 		*expiry = value
 	}
+}
+
+func earliest(lhs, rhs time.Time) time.Time {
+	if rhs.Before(lhs) {
+		return rhs
+	}
+
+	return lhs
 }
