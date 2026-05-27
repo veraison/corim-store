@@ -87,7 +87,7 @@ func TestCoSERVService(t *testing.T) {
 	err = service.UpdateCoSERV(cs)
 	assert.NoError(t, err)
 	assert.Equal(t, "0.1.2.3.4", (*cs.Results.RVQ)[0].RVTriple.Measurements.Values[0].Key.Value.String())
-	assert.Equal(t, 2999, cs.Results.Expiry.Year())
+	assert.Equal(t, time.Now().Year(), cs.Results.Expiry.Year())
 
 	cs = &coserv.Coserv{
 		Profile: *profile,
