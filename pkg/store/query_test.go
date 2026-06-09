@@ -52,7 +52,7 @@ func TestDigestQuery(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 
-	query = NewDigestQuery().Owner("measurement", 1).AlgID(1)
+	query = NewDigestQuery().Owner("measurement", 1).IntAlgID(1)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
@@ -114,7 +114,7 @@ func TestIntegrityRegisterQuery(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 
-	digest := model.Digest{AlgID: 1, Value: bytes}
+	digest := model.Digest{AlgIDInt: 1, Value: bytes}
 	query = NewIntegrityRegisterQuery().DigestFromModel(&digest)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
@@ -127,7 +127,7 @@ func TestIntegrityRegisterQuery(t *testing.T) {
 			IndexText: &idxStr,
 			Digests: []*model.Digest{
 				{
-					AlgID: 1,
+					AlgIDInt: 1,
 					Value: []byte{
 						0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
 						0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
@@ -212,12 +212,12 @@ func TestMeasurementValueQuery(t *testing.T) {
 
 	result, err := query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 7)
+	assert.Len(t, result, 8)
 
 	query = NewMeasurementValueQuery().MeasurementID(1)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 4)
+	assert.Len(t, result, 2)
 
 	query = NewMeasurementValueQuery().ID(1, 2)
 	result, err = query.Run(ctx, db)
@@ -277,7 +277,7 @@ func TestMeasurementValueQuery(t *testing.T) {
 		ValueInt(valueInt)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewMeasurementValueQuery().
 		UpdateFromModel(&model.MeasurementValueEntry{
@@ -297,7 +297,7 @@ func TestMeasurementValueQuery(t *testing.T) {
 		})
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewMeasurementValueQuery().
 		UpdateFromModel(&model.MeasurementValueEntry{
@@ -400,7 +400,7 @@ func TestMeasurementQuery(t *testing.T) {
 	query = NewMeasurementQuery().Owner("value_triple", 1)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 3)
 
 	query = NewMeasurementQuery().MkeyType("uint")
 	result, err = query.Run(ctx, db)
@@ -419,7 +419,7 @@ func TestMeasurementQuery(t *testing.T) {
 	})
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewMeasurementQuery().IntegrityRegister(func(irq *IntegrityRegisterQuery) {
 		irq.IndexText("reg1")
@@ -461,7 +461,7 @@ func TestLocatorQuery(t *testing.T) {
 		ManifestID(1).
 		Href("foo").
 		Digests(func(dq *DigestQuery) {
-			dq.AlgID(1).Value(bytes)
+			dq.IntAlgID(1).Value(bytes)
 		})
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)

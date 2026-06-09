@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/veraison/corim-store/pkg/util"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/swid"
 )
@@ -27,7 +28,7 @@ func TestMeasurement_round_trip(t *testing.T) {
 	meas = meas.SetSVN(7).
 		SetVersion("0.0.1", swid.VersionSchemeSemVer).
 		SetFlagsTrue(comid.FlagIsConfigured).
-		AddDigest(swid.Sha256, testBytes).
+		AddDigest(comid.Sha256, testBytes).
 		SetRawValueBytes(testBytes, nil).
 		SetMACaddr(mac).
 		SetIPaddr(ip).
@@ -36,7 +37,7 @@ func TestMeasurement_round_trip(t *testing.T) {
 		SetUUID(comid.TestUUID).
 		SetName("bar")
 
-	digests := comid.NewDigests().AddDigest(swid.Sha256, testBytes)
+	digests := comid.NewDigests().AddDigest(comid.Sha256, testBytes)
 	regs := comid.NewIntegrityRegisters()
 	assert.NoError(t, regs.AddDigests(comid.IRegisterIndex("baz"), *digests))
 	meas.Val.IntegrityRegisters = regs
@@ -64,7 +65,7 @@ func TestMeasurement_round_trip(t *testing.T) {
 
 	assert.Equal(t, comid.MustNewTaggedSVN(7), selectedMeas.Val.SVN)
 	assert.Equal(t, true, *selectedMeas.Val.Flags.IsConfigured)
-	assert.Equal(t, testBytes, (*selectedMeas.Val.Digests)[0].HashValue)
+	assert.Equal(t, testBytes, (*selectedMeas.Val.Digests)[0].Value)
 	assert.Equal(t, &mac, selectedMeas.Val.MACAddr)
 	assert.Equal(t, &ip, selectedMeas.Val.IPAddr)
 	assert.Equal(t, "foo", *selectedMeas.Val.SerialNumber)
@@ -72,8 +73,7 @@ func TestMeasurement_round_trip(t *testing.T) {
 	assert.Equal(t, comid.TestUUID, *selectedMeas.Val.UUID)
 	assert.Equal(t, "bar", *selectedMeas.Val.Name)
 
-	rawValBytes, err := selectedMeas.Val.RawValue.GetBytes()
-	assert.NoError(t, err)
+	rawValBytes := selectedMeas.Val.RawValue.Bytes()
 	assert.Equal(t, testBytes, rawValBytes)
 
 	selectedDigests, ok := selectedMeas.Val.IntegrityRegisters.IndexMap[comid.IRegisterIndex("baz")]
@@ -125,6 +125,12 @@ func TestMeasurement_convert(t *testing.T) {
 	boolMkey := boolMkeyType(true)
 	svnInt := int64(7)
 	largeSvnInternal := int64(math.MinInt64)
+	rawIntRangeBytes := []byte{
+		0xd9, 0x02, 0x34, // tag(564)
+		0x82, //             . array(2)
+		0x07, //             . . [0]7
+		0xf6, //             . . [1]null
+	}
 	testCases := []struct {
 		title    string
 		origin   comid.Measurement
@@ -189,6 +195,67 @@ func TestMeasurement_convert(t *testing.T) {
 						CodePoint: MvalSvn,
 						ValueType: "exact-value",
 						ValueInt:  &largeSvnInternal,
+					},
+				},
+			},
+		},
+		{
+			title: "ok IntRange",
+			origin: comid.Measurement{
+				Val: comid.Mval{
+					IntRange: comid.MustNewRawInt(
+						comid.TaggedRawIntRange{Min: &svnInt},
+						comid.TaggedRawIntRangeType,
+					),
+				},
+			},
+			expected: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalIntRange,
+						ValueType:  "rawIntRange",
+						ValueBytes: &rawIntRangeBytes,
+					},
+				},
+			},
+		},
+		{
+			title: "ok RawValue bytes",
+			origin: comid.Measurement{
+				Val: comid.Mval{
+					RawValue: comid.NewRawValueFromBytes([]byte{0x01}),
+				},
+			},
+			expected: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalRawValue,
+						ValueType:  comid.BytesType,
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+		},
+		{
+			title: "ok RawValue masked",
+			origin: comid.Measurement{
+				Val: comid.Mval{
+					RawValue: comid.MustNewRawValueWithMask([]byte{0x01}, []byte{0xff}),
+				},
+			},
+			expected: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint: MvalRawValue,
+						ValueType: comid.MaskedType,
+						ValueBytes: &[]byte{
+							0xd9, 0x02, 0x33, // tag(563)
+							0x82, //             . array(2)
+							0x41, //             . . [0]bstr(1)
+							0x01, //             . . . 01
+							0x41, //             . . [2]bstr(1)
+							0xff, //             . . . ff
+						},
 					},
 				},
 			},
@@ -306,8 +373,6 @@ func TestMeasurement_Delete(t *testing.T) {
 }
 
 func TestMeasurement_ToCoRIM_nok(t *testing.T) {
-	testText := "foo"
-	testInt := int64(7)
 	testCases := []struct {
 		title string
 		mea   Measurement
@@ -346,7 +411,7 @@ func TestMeasurement_ToCoRIM_nok(t *testing.T) {
 				ValueEntries: []*MeasurementValueEntry{
 					{
 						CodePoint: MvalVersion,
-						ValueText: &testText,
+						ValueText: util.Ptr("foo"),
 						ValueType: "foo",
 					},
 				},
@@ -359,7 +424,7 @@ func TestMeasurement_ToCoRIM_nok(t *testing.T) {
 				ValueEntries: []*MeasurementValueEntry{
 					{
 						CodePoint: MvalSvn,
-						ValueInt:  &testInt,
+						ValueInt:  util.Ptr(int64(7)),
 						ValueType: "foo",
 					},
 				},
@@ -381,7 +446,7 @@ func TestMeasurement_ToCoRIM_nok(t *testing.T) {
 				ValueEntries: []*MeasurementValueEntry{
 					{
 						CodePoint: MvalName,
-						ValueText: &testText,
+						ValueText: util.Ptr("foo"),
 						ValueType: "bar",
 					},
 				},
@@ -405,6 +470,199 @@ func TestMeasurement_ToCoRIM_nok(t *testing.T) {
 				},
 			},
 			err: "unexpected code point: -1",
+		},
+		{
+			title: "bad int-range missing bytes",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalIntRange},
+				},
+			},
+			err: "missing int-range data",
+		},
+		{
+			title: "bad int-range bad CBOR",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalIntRange,
+						ValueType:  comid.TaggedRawIntRangeType,
+						ValueBytes: &[]byte{0xf6},
+					},
+				},
+			},
+			err: "unknown major type: 7",
+		},
+		{
+			title: "bad int-range bad Type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalIntRange,
+						ValueType:  "foo",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unknown type: foo",
+		},
+		{
+			title: "bad UUID missing bytes",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalUUID},
+				},
+			},
+			err: "missing UUID data",
+		},
+		{
+			title: "bad UUID bad type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalUUID,
+						ValueType:  "foo",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unexpected UUID type: foo",
+		},
+		{
+			title: "bad UUID bad value",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalUUID,
+						ValueType:  "bytes",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unexpected size for UUID",
+		},
+		{
+			title: "bad UEID missing bytes",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalUEID},
+				},
+			},
+			err: "missing UEID data",
+		},
+		{
+			title: "bad UEID bad type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalUEID,
+						ValueType:  "foo",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unexpected UEID type: foo",
+		},
+		{
+			title: "bad SerialNumber missing text",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalSerialNumber},
+				},
+			},
+			err: "missing SerialNumber data",
+		},
+		{
+			title: "bad SerialNumber bad type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint: MvalSerialNumber,
+						ValueType: "foo",
+						ValueText: util.Ptr("foo"),
+					},
+				},
+			},
+			err: "unexpected SerialNumber type: foo",
+		},
+		{
+			title: "bad IPAddr missing bytes",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalIPAddr},
+				},
+			},
+			err: "missing IPAddr data",
+		},
+		{
+			title: "bad IPAddr bad type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalIPAddr,
+						ValueType:  "foo",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unexpected IPAddr type: foo",
+		},
+		{
+			title: "bad MACAddr missing bytes",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalMACAddr},
+				},
+			},
+			err: "missing MACAddr data",
+		},
+		{
+			title: "bad MACAddr bad type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalMACAddr,
+						ValueType:  "foo",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unexpected MACAddr type: foo",
+		},
+		{
+			title: "bad RawValue missing bytes",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{CodePoint: MvalRawValue},
+				},
+			},
+			err: "missing RawValue data",
+		},
+		{
+			title: "bad RawValue bad type",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalRawValue,
+						ValueType:  "foo",
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "unexpected RawValue type: foo",
+		},
+		{
+			title: "bad RawValue bad masked",
+			mea: Measurement{
+				ValueEntries: []*MeasurementValueEntry{
+					{
+						CodePoint:  MvalRawValue,
+						ValueType:  comid.MaskedType,
+						ValueBytes: &[]byte{0x01},
+					},
+				},
+			},
+			err: "cannot unmarshal positive integer into Go value",
 		},
 	}
 

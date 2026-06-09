@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/veraison/corim/comid"
-	"github.com/veraison/swid"
 )
 
 func TestValueTriple_round_trip(t *testing.T) {
@@ -82,8 +81,8 @@ func TestValueTriple_Validate(t *testing.T) {
 					{
 						Digests: []*Digest{
 							{
-								AlgID: swid.Sha256,
-								Value: testBytes,
+								AlgIDInt: int64(comid.Sha256),
+								Value:    testBytes,
 							},
 						},
 					},

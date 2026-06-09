@@ -194,7 +194,7 @@
 - model: Digest
   rows:
     - id: 1
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 7
         - 6
@@ -231,7 +231,7 @@
       owner_id: 2
       owner_type: measurement
     - id: 2
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 7
         - 6
@@ -268,7 +268,7 @@
       owner_id: 3
       owner_type: measurement
     - id: 3
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 7
         - 6
@@ -305,7 +305,7 @@
       owner_id: 4
       owner_type: measurement
     - id: 4
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 7
         - 6
@@ -342,7 +342,7 @@
       owner_id: 5
       owner_type: measurement
     - id: 5
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 0
         - 0
@@ -379,7 +379,7 @@
       owner_id: 1
       owner_type: integrity_register
     - id: 6
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 0
         - 0
@@ -416,7 +416,7 @@
       owner_id: 2
       owner_type: integrity_register
     - id: 7
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 0
         - 0
@@ -453,7 +453,7 @@
       owner_id: 3
       owner_type: integrity_register
     - id: 8
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 0
         - 0
@@ -490,7 +490,7 @@
       owner_id: 4
       owner_type: integrity_register
     - id: 9
-      alg_id: 1
+      alg_id_int: 1
       value:
         - 0
         - 0
@@ -729,6 +729,8 @@
 - model: LinkedTag
   rows: []
 - model: Locator
+  rows: []
+- model: Href
   rows: []
 - model: Manifest
   rows:

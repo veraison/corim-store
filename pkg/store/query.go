@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/veraison/corim-store/pkg/model"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/eat"
+	"github.com/veraison/swid"
 )
 
 // Query is the interface implemented by all objects that can be used to query
@@ -33,12 +35,54 @@ type Query[T model.Model] interface {
 	IsEmpty() bool
 }
 
+type HrefQuery struct {
+	modelQuery
+
+	values     []string
+	locatorIDs []int64
+}
+
+func NewHrefQuery() *HrefQuery {
+	return &HrefQuery{}
+}
+
+func (o *HrefQuery) ID(value ...int64) *HrefQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *HrefQuery) Value(value ...string) *HrefQuery {
+	o.values = append(o.values, value...)
+	return o
+}
+
+func (o *HrefQuery) LocatorID(value ...int64) *HrefQuery {
+	o.locatorIDs = append(o.locatorIDs, value...)
+	return o
+}
+
+func (o *HrefQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("value", o.values, false, query, dialect)
+	addOrGroupWhereClause("locator_id", o.locatorIDs, false, query, dialect)
+}
+
+func (o *HrefQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Href, error) {
+	return runQuery(ctx, db, o)
+}
+
+func (o *HrefQuery) IsEmpty() bool {
+	return len(o.values) == 0 &&
+		len(o.locatorIDs) == 0 &&
+		o.modelQuery.IsEmpty()
+}
+
 type LocatorQuery struct {
 	modelQuery
 
-	hrefs       []string
 	manifestIDs []int64
 
+	hrefQuery    *HrefQuery
 	digestsQuery *DigestQuery
 }
 
@@ -51,8 +95,16 @@ func (o *LocatorQuery) ID(value ...int64) *LocatorQuery {
 	return o
 }
 
+func (o *LocatorQuery) HrefSubquery() *HrefQuery {
+	if o.hrefQuery == nil {
+		o.hrefQuery = NewHrefQuery()
+	}
+
+	return o.hrefQuery
+}
+
 func (o *LocatorQuery) Href(value ...string) *LocatorQuery {
-	o.hrefs = append(o.hrefs, value...)
+	o.HrefSubquery().Value(value...)
 	return o
 }
 
@@ -76,11 +128,10 @@ func (o *LocatorQuery) Digests(updater func(*DigestQuery)) *LocatorQuery {
 
 func (o *LocatorQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
 	o.modelQuery.UpdateSelectQuery(query, dialect)
-	addOrGroupWhereClause("href", o.hrefs, false, query, dialect)
 	addOrGroupWhereClause("manifest_id", o.manifestIDs, false, query, dialect)
 }
 
-func (o *LocatorQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Locator, error) {
+func (o *LocatorQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Locator, error) { //nolint:dupl
 	if !o.DigestsSubquery().IsEmpty() {
 		o.saveIDs()
 
@@ -105,15 +156,37 @@ func (o *LocatorQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Locator, e
 		}
 	}
 
+	if !o.HrefSubquery().IsEmpty() {
+		o.saveIDs()
+
+		hrefs, err := o.HrefSubquery().
+			LocatorID(o.ids...).
+			Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.HrefSubquery().locatorIDs = nil
+
+		if err != nil {
+			o.restoreIDs()
+			return nil, fmt.Errorf("href: %w", err)
+		}
+
+		o.ids = make([]int64, len(hrefs))
+		for i, href := range hrefs {
+			o.ids[i] = href.LocatorID
+		}
+	}
+
 	ret, err := runQuery(ctx, db, o)
 	o.restoreIDs()
 	return ret, err
 }
 
 func (o *LocatorQuery) IsEmpty() bool {
-	return len(o.hrefs) == 0 &&
-		len(o.manifestIDs) == 0 &&
+	return len(o.manifestIDs) == 0 &&
 		o.modelQuery.IsEmpty() &&
+		o.HrefSubquery().IsEmpty() &&
 		o.DigestsSubquery().IsEmpty()
 }
 
@@ -284,6 +357,10 @@ func (o *ManifestQuery) ManifestIDValue(value ...string) *ManifestQuery {
 	return o
 }
 
+func (o *ManifestQuery) ManifestIDFromSWID(tag swid.TagID) *ManifestQuery {
+	o.ManifestCommonQuery.ManifestIDFromSWID(tag)
+	return o
+}
 func (o *ManifestQuery) ManifestID(typ model.TagIDType, value string) *ManifestQuery {
 	o.ManifestCommonQuery.ManifestID(typ, value)
 	return o
@@ -528,6 +605,11 @@ func (o *ModuleTagQuery) ManifestIDValue(value ...string) *ModuleTagQuery {
 	return o
 }
 
+func (o *ModuleTagQuery) ManifestIDFromSWID(tag swid.TagID) *ModuleTagQuery {
+	typ, value := model.ParseSWIDTagID(tag)
+	return o.ManifestID(typ, value)
+}
+
 func (o *ModuleTagQuery) ManifestID(typ model.TagIDType, value string) *ModuleTagQuery {
 	o.ManifestCommonQuery.ManifestID(typ, value)
 	return o
@@ -601,6 +683,11 @@ func (o *ModuleTagQuery) ModuleTagIDType(value ...model.TagIDType) *ModuleTagQue
 func (o *ModuleTagQuery) ModuleTagIDValue(value ...string) *ModuleTagQuery {
 	o.ModuleTagCommonQuery.ModuleTagIDValue(value...)
 	return o
+}
+
+func (o *ModuleTagQuery) ModuleTagIDFromSWID(tag swid.TagID) *ModuleTagQuery {
+	typ, value := model.ParseSWIDTagID(tag)
+	return o.ModuleTagID(typ, value)
 }
 
 func (o *ModuleTagQuery) ModuleTagID(typ model.TagIDType, value string) *ModuleTagQuery {
@@ -1610,9 +1697,10 @@ type DigestQuery struct {
 	modelQuery
 	ownedQuery
 
-	algIDs  []uint64
-	values  [][]byte
-	digests []*digestQueryEntry
+	TextAlgIDs []string
+	IntAlgIDs  []int64
+	values     [][]byte
+	digests    []*digestQueryEntry
 }
 
 func NewDigestQuery() *DigestQuery {
@@ -1646,8 +1734,13 @@ func (o *DigestQuery) OwnerFromModel(value ...*model.Digest) *DigestQuery {
 	return o
 }
 
-func (o *DigestQuery) AlgID(value ...uint64) *DigestQuery {
-	o.algIDs = append(o.algIDs, value...)
+func (o *DigestQuery) IntAlgID(value ...int64) *DigestQuery {
+	o.IntAlgIDs = append(o.IntAlgIDs, value...)
+	return o
+}
+
+func (o *DigestQuery) TextAlgID(value ...string) *DigestQuery {
+	o.TextAlgIDs = append(o.TextAlgIDs, value...)
 	return o
 }
 
@@ -1656,14 +1749,42 @@ func (o *DigestQuery) Value(value ...[]byte) *DigestQuery {
 	return o
 }
 
-func (o *DigestQuery) Digest(algID uint64, value []byte) *DigestQuery {
-	o.digests = append(o.digests, &digestQueryEntry{algID, value})
+func (o *DigestQuery) Digest(algID any, value []byte) *DigestQuery {
+	switch t := algID.(type) {
+	case int:
+		return o.DigestIntAlg(int64(t), value)
+	case int64:
+		return o.DigestIntAlg(t, value)
+	case uint64:
+		if t <= math.MaxInt64 {
+			return o.DigestIntAlg(int64(t), value)
+		}
+
+		return o
+	case string:
+		return o.DigestTextAlg(t, value)
+	default:
+		return o
+	}
+}
+
+func (o *DigestQuery) DigestIntAlg(algID int64, value []byte) *DigestQuery {
+	o.digests = append(o.digests, &digestQueryEntry{algID, "", value})
+	return o
+}
+
+func (o *DigestQuery) DigestTextAlg(algID string, value []byte) *DigestQuery {
+	o.digests = append(o.digests, &digestQueryEntry{0, algID, value})
 	return o
 }
 
 func (o *DigestQuery) DigestFromModel(value ...*model.Digest) *DigestQuery {
 	for _, v := range value {
-		o.Digest(v.AlgID, v.Value)
+		if v.AlgIDText == "" {
+			o.DigestIntAlg(v.AlgIDInt, v.Value)
+		} else {
+			o.DigestTextAlg(v.AlgIDText, v.Value)
+		}
 	}
 	return o
 }
@@ -1672,7 +1793,22 @@ func (o *DigestQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.D
 	o.modelQuery.UpdateSelectQuery(query, dialect)
 	o.ownedQuery.UpdateSelectQuery(query, dialect)
 
-	addOrGroupWhereClause("alg_id", o.algIDs, false, query, dialect)
+	if len(o.IntAlgIDs) != 0 || len(o.TextAlgIDs) != 0 {
+		query.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			whereText := fmt.Sprintf(`%s = ?`, identQuote("alg_id_int", dialect))
+			for _, value := range o.IntAlgIDs {
+				q.WhereOr(whereText, value)
+			}
+
+			whereText = fmt.Sprintf(`%s = ?`, identQuote("alg_id_text", dialect))
+			for _, value := range o.TextAlgIDs {
+				q.WhereOr(whereText, value)
+			}
+
+			return q
+		})
+	}
+
 	addOrGroupWhereClause("value", o.values, false, query, dialect)
 	updateQueryWithEntries(o.digests, query, dialect)
 }
@@ -1682,7 +1818,8 @@ func (o *DigestQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Digest, err
 }
 
 func (o *DigestQuery) IsEmpty() bool {
-	return len(o.algIDs) == 0 &&
+	return len(o.IntAlgIDs) == 0 &&
+		len(o.TextAlgIDs) == 0 &&
 		len(o.values) == 0 &&
 		len(o.digests) == 0 &&
 		o.modelQuery.IsEmpty() &&
@@ -1736,8 +1873,13 @@ func (o *IntegrityRegisterQuery) DigestID(value ...int64) *IntegrityRegisterQuer
 	return o
 }
 
-func (o *IntegrityRegisterQuery) DigestAlgID(value ...uint64) *IntegrityRegisterQuery {
-	o.DigestsSubquery().AlgID(value...)
+func (o *IntegrityRegisterQuery) DigestIntAlgID(value ...int64) *IntegrityRegisterQuery {
+	o.DigestsSubquery().IntAlgID(value...)
+	return o
+}
+
+func (o *IntegrityRegisterQuery) DigestTextAlgID(value ...string) *IntegrityRegisterQuery {
+	o.DigestsSubquery().TextAlgID(value...)
 	return o
 }
 
@@ -2103,8 +2245,13 @@ func (o *MeasurementQuery) DigestsSubquery() *DigestQuery {
 	return o.digestQuery
 }
 
-func (o *MeasurementQuery) DigestAlgID(value ...uint64) *MeasurementQuery {
-	o.DigestsSubquery().AlgID(value...)
+func (o *MeasurementQuery) DigestIntAlgID(value ...int64) *MeasurementQuery {
+	o.DigestsSubquery().IntAlgID(value...)
+	return o
+}
+
+func (o *MeasurementQuery) DigestTextAlgID(value ...string) *MeasurementQuery {
+	o.DigestsSubquery().TextAlgID(value...)
 	return o
 }
 
@@ -2515,6 +2662,11 @@ func (o *ManifestCommonQuery) ManifestIDValue(value ...string) *ManifestCommonQu
 	return o
 }
 
+func (o *ManifestCommonQuery) ManifestIDFromSWID(tag swid.TagID) *ManifestCommonQuery {
+	typ, value := model.ParseSWIDTagID(tag)
+	return o.ManifestID(typ, value)
+}
+
 func (o *ManifestCommonQuery) ManifestID(typ model.TagIDType, value string) *ManifestCommonQuery {
 	o.manifestIDs = append(o.manifestIDs, &manifestIDQueryEntry{typ, value})
 	return o
@@ -2542,6 +2694,10 @@ func (o *ManifestCommonQuery) Profile(typ model.ProfileType, value string) *Mani
 
 func (o *ManifestCommonQuery) ProfileFromEAT(values ...*eat.Profile) *ManifestCommonQuery {
 	for _, profile := range values {
+		if profile == nil || (!profile.IsOID() && !profile.IsURI()) {
+			continue
+		}
+
 		value, err := profile.Get()
 		if err != nil {
 			panic(err)
@@ -2909,12 +3065,17 @@ func (o *keyQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect)
 }
 
 type digestQueryEntry struct {
-	algID uint64
-	value []byte
+	algIDInt  int64
+	algIDText string
+	value     []byte
 }
 
 func (o *digestQueryEntry) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
-	whereFunc("alg_id = ? AND value = ?", o.algID, o.value)
+	if o.algIDText == "" {
+		whereFunc("alg_id_int = ? AND value = ?", o.algIDInt, o.value)
+	} else {
+		whereFunc("alg_id_text = ? AND value = ?", o.algIDText, o.value)
+	}
 }
 
 type classIDQueryEntry struct {

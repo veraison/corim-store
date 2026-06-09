@@ -15,15 +15,6 @@ func TestLocator_conversion(t *testing.T) {
 	other, err := LocatorsToCoRIM(nil)
 	assert.Nil(t, other)
 	assert.NoError(t, err)
-
-	locs := []*Locator{
-		{
-			Href:       "http://example.com",
-			Thumbprint: []*Digest{{}, {}},
-		},
-	}
-	_, err = LocatorsToCoRIM(locs)
-	assert.ErrorContains(t, err, "locator at index 0: multiple digests not supported")
 }
 
 func TestLocator_Select(t *testing.T) {

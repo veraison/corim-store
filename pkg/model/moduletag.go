@@ -77,17 +77,8 @@ func (o *ModuleTag) FromCoRIM(origin *comid.Comid) error {
 	}
 
 	o.Language = origin.Language
-	o.TagID = origin.TagIdentity.TagID.String()
+	o.TagIDType, o.TagID = ParseSWIDTagID(origin.TagIdentity.TagID)
 	o.TagVersion = origin.TagIdentity.TagVersion
-
-	// swid.TagID does not expose the underlying type in any way, but we
-	// need it to correctly reconstruct it inside ToCoRIM(), so we guess
-	// by seeing if the ID parses as a valid UUID.
-	if _, err = uuid.Parse(o.TagID); err == nil {
-		o.TagIDType = UUIDTagID
-	} else {
-		o.TagIDType = StringTagID
-	}
 
 	o.Entities, err = CoMIDEntitiesFromCoRIM(origin.Entities)
 	if err != nil {

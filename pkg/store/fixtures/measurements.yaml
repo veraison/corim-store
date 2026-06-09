@@ -21,14 +21,14 @@
         0x66, 0x6f, 0x6f,  # "foo"
       ]
       owner_id: 1
-      owner_type: key_triple
+      owner_type: value_triple
     - id: 4
       key_type: uint
       key_bytes: [
         0x01,
       ]
       owner_id: 2
-      owner_type: key_triple
+      owner_type: value_triple
     - id: 5
       key_type: oid
       key_bytes: [

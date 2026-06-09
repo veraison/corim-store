@@ -66,8 +66,8 @@ func (o *QueryGroup[M, Q]) Run(ctx context.Context, db bun.IDB) ([]M, error) {
 }
 
 func (o *QueryGroup[M, Q]) RunGroup(ctx context.Context, db bun.IDB) ([][]M, error) {
-	ret := make([][]M, len(o.subqueries))
-	for i, sub := range o.subqueries {
+	ret := make([][]M, 0, len(o.subqueries))
+	for _, sub := range o.subqueries {
 		subResult, err := sub.Run(ctx, db)
 		if err != nil {
 			if !errors.Is(err, ErrNoMatch) {
@@ -77,7 +77,7 @@ func (o *QueryGroup[M, Q]) RunGroup(ctx context.Context, db bun.IDB) ([][]M, err
 			continue
 		}
 
-		ret[i] = subResult
+		ret = append(ret, subResult)
 	}
 
 	if len(ret) == 0 {
@@ -117,4 +117,16 @@ type ValueTripleQueryGroup = QueryGroup[*model.ValueTripleEntry, *ValueTripleQue
 
 func NewValueTripleQueryGroup() *ValueTripleQueryGroup {
 	return NewQueryGroup[*model.ValueTripleEntry, *ValueTripleQuery]()
+}
+
+type ManifestQueryGroup = QueryGroup[*model.ManifestEntry, *ManifestQuery]
+
+func NewManifestQueryGroup() *ManifestQueryGroup {
+	return NewQueryGroup[*model.ManifestEntry, *ManifestQuery]()
+}
+
+type ModuleTagQueryGroup = QueryGroup[*model.ModuleTagEntry, *ModuleTagQuery]
+
+func NewModuleTagQueryGroup() *ModuleTagQueryGroup {
+	return NewQueryGroup[*model.ModuleTagEntry, *ModuleTagQuery]()
 }

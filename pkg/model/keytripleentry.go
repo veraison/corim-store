@@ -18,6 +18,9 @@ type KeyTripleEntry struct {
 
 	TripleType KeyTripleType
 
+	ConditionKeyType  *string `bun:"cond_key_type"`
+	ConditionKeyBytes *[]byte `bun:"cond_key_bytes"`
+
 	IsActive bool
 
 	ManifestIDType TagIDType

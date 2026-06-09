@@ -218,6 +218,12 @@ func TestEnvironment_round_trip(t *testing.T) {
 			},
 		},
 		{
+			title: "instance PKIXBase64Key",
+			env: comid.Environment{
+				Instance: comid.MustNewPKIXBase64KeyInstance(comid.TestECPubKey),
+			},
+		},
+		{
 			title: "instance extension",
 			env: comid.Environment{
 				Instance: testExtInstance,

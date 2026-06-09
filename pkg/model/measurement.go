@@ -132,7 +132,8 @@ type Measurement struct {
 	IntegrityRegisters []*IntegrityRegister     `bun:"rel:has-many,join:id=measurement_id"`
 	Extensions         []*ExtensionValue        `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement"`
 
-	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement"`
+	CryptoKeys   []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement"`
+	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement_auth"`
 	OwnerID      int64        `bun:",nullzero"`
 	OwnerType    string       `bun:",nullzero"`
 }
@@ -172,23 +173,9 @@ func (o *Measurement) IsTable() bool {
 
 func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 	if origin.Key != nil {
-		mkeyType := origin.Key.Type()
-		var mkeyBytes []byte
-
-		switch t := origin.Key.Value.(type) {
-		case *comid.StringMkey:
-			mkeyBytes = []byte(*t)
-		case *comid.TaggedUUID:
-			mkeyBytes = (*t)[:]
-		case *comid.TaggedOID:
-			mkeyBytes = (*t)[:]
-		default:
-			var err error
-			mkeyBytes, err = origin.Key.MarshalCBOR()
-			if err != nil {
-				// coverage:ignore
-				return fmt.Errorf("could not CBOR-encode group: %w", err)
-			}
+		mkeyType, mkeyBytes, err := mkeyToModel(origin.Key)
+		if err != nil {
+			return err
 		}
 
 		o.KeyType = &mkeyType
@@ -246,14 +233,20 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 	o.Flags = flags
 
 	if origin.Val.RawValue != nil {
-		bytes, err := origin.Val.RawValue.GetBytes()
-		if err != nil {
-			return fmt.Errorf("could not get RawValue bytes: %w", err)
+		var bytes []byte
+		if origin.Val.RawValue.Type() == comid.BytesType {
+			bytes = origin.Val.RawValue.Bytes()
+		} else {
+			var err error
+			bytes, err = origin.Val.RawValue.MarshalCBOR()
+			if err != nil {
+				return fmt.Errorf("marshaling RawValue: %w", err)
+			}
 		}
 
 		o.ValueEntries = append(o.ValueEntries, &MeasurementValueEntry{
 			CodePoint:  MvalRawValue,
-			ValueType:  "bytes",
+			ValueType:  origin.Val.RawValue.Type(),
 			ValueBytes: &bytes,
 		})
 	}
@@ -307,6 +300,19 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 		})
 	}
 
+	if origin.Val.IntRange != nil {
+		bytes, err := origin.Val.IntRange.MarshalCBOR()
+		if err != nil {
+			return fmt.Errorf("int-range: %w", err)
+		}
+
+		o.ValueEntries = append(o.ValueEntries, &MeasurementValueEntry{
+			CodePoint:  MvalIntRange,
+			ValueType:  origin.Val.IntRange.Type(),
+			ValueBytes: &bytes,
+		})
+	}
+
 	integRegs, err := IntegerityRegistersFromCoRIM(origin.Val.IntegrityRegisters)
 	if err != nil {
 		return err
@@ -318,6 +324,11 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 		return err
 	}
 	o.Extensions = exts
+
+	o.CryptoKeys, err = CryptoKeysFromCoRIM(origin.Val.CryptoKeys)
+	if err != nil {
+		return err
+	}
 
 	o.AuthorizedBy, err = CryptoKeysFromCoRIM(origin.AuthorizedBy)
 	if err != nil {
@@ -333,35 +344,9 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 	var mval comid.Mval
 
 	if o.KeyType != nil {
-		if o.KeyBytes == nil {
-			return nil, errors.New("missing mkey data")
-		}
-
-		switch *o.KeyType {
-		case comid.OIDType:
-			mkey, err = comid.NewMkeyOID(*o.KeyBytes)
-			if err != nil {
-				return nil, fmt.Errorf("could not initialize OID mkey: %w", err)
-			}
-		case comid.UUIDType:
-			mkey, err = comid.NewMkeyUUID(*o.KeyBytes)
-			if err != nil {
-				return nil, fmt.Errorf("could not initialize UUID mkey: %w", err)
-			}
-		case comid.StringType:
-			mkey, err = comid.NewMkeyString(*o.KeyBytes)
-			if err != nil {
-				return nil, fmt.Errorf("could not initialize string mkey: %w", err)
-			}
-		default:
-			mkey, err = comid.NewMkey(nil, *o.KeyType)
-			if err != nil {
-				return nil, err
-			}
-
-			if err = cbor.Unmarshal(*o.KeyBytes, &mkey.Value); err != nil {
-				return nil, fmt.Errorf("could not CBOR-decode mkey: %w", err)
-			}
+		mkey, err = mkeyFromModel(*o.KeyType, o.KeyBytes)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -408,12 +393,19 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 			}
 
 			switch entry.ValueType {
-			case "bytes":
-				var val comid.RawValue
-				val.SetBytes(*entry.ValueBytes)
-				mval.RawValue = &val
+			case comid.BytesType:
+				mval.RawValue = comid.NewRawValueFromBytes(*entry.ValueBytes)
 			default:
-				return nil, fmt.Errorf("unexpected RawValue type: %s", entry.ValueType)
+				out, err := comid.NewRawValue(nil, entry.ValueType)
+				if err != nil {
+					return nil, fmt.Errorf("raw-value: %w", err)
+				}
+
+				if err := out.UnmarshalCBOR(*entry.ValueBytes); err != nil {
+					return nil, fmt.Errorf("raw-value CBOR: %w", err)
+				}
+
+				mval.RawValue = out
 			}
 		case MvalMACAddr:
 			if entry.ValueBytes == nil {
@@ -486,7 +478,22 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 			default:
 				return nil, fmt.Errorf("unexpected Name type: %s", entry.ValueType)
 			}
-		case MvalDigests, MvalFlags:
+		case MvalIntRange:
+			if entry.ValueBytes == nil {
+				return nil, fmt.Errorf("missing int-range data: %+v", entry)
+			}
+
+			intRange, err := comid.NewRawInt(nil, entry.ValueType)
+			if err != nil {
+				return nil, fmt.Errorf("new int-range: %w", err)
+			}
+
+			if err := intRange.UnmarshalCBOR(*entry.ValueBytes); err != nil {
+				return nil, fmt.Errorf("int-range unmarshal: %w", err)
+			}
+
+			mval.IntRange = intRange
+		case MvalDigests, MvalFlags, MvalCryptoKeys:
 			return nil, fmt.Errorf(
 				"unexpected value entry for code point %d (should be in its own table)",
 				entry.CodePoint,
@@ -577,12 +584,21 @@ func (o *Measurement) Insert(ctx context.Context, db bun.IDB) error {
 		}
 	}
 
-	for _, key := range o.AuthorizedBy {
+	for _, key := range o.CryptoKeys {
 		key.OwnerID = o.ID
 		key.OwnerType = "measurement"
 
 		if err := key.Insert(ctx, db); err != nil {
 			return fmt.Errorf("error inserting crypto key %+v: %w", key, err)
+		}
+	}
+
+	for _, key := range o.AuthorizedBy {
+		key.OwnerID = o.ID
+		key.OwnerType = "measurement_auth"
+
+		if err := key.Insert(ctx, db); err != nil {
+			return fmt.Errorf("error inserting auth crypto key %+v: %w", key, err)
 		}
 	}
 
@@ -623,6 +639,12 @@ func (o *Measurement) Delete(ctx context.Context, db bun.IDB) error { // nolint:
 		}
 	}
 
+	for i, key := range o.CryptoKeys {
+		if err := key.Delete(ctx, db); err != nil {
+			return fmt.Errorf("crypto key at index %d: %w", i, err)
+		}
+	}
+
 	for i, digest := range o.Digests {
 		if err := digest.Delete(ctx, db); err != nil {
 			return fmt.Errorf("digest at index %d: %w", i, err)
@@ -655,6 +677,66 @@ func (o *Measurement) Delete(ctx context.Context, db bun.IDB) error { // nolint:
 
 	_, err := db.NewDelete().Model(o).WherePK().Exec(ctx)
 	return err
+}
+
+func mkeyToModel(mkey *comid.Mkey) (string, []byte, error) {
+	mkeyType := mkey.Type()
+	var mkeyBytes []byte
+
+	switch t := mkey.Value.(type) {
+	case *comid.StringMkey:
+		mkeyBytes = []byte(*t)
+	case *comid.TaggedUUID:
+		mkeyBytes = (*t)[:]
+	case *comid.TaggedOID:
+		mkeyBytes = (*t)[:]
+	default:
+		var err error
+		mkeyBytes, err = mkey.MarshalCBOR()
+		if err != nil {
+			// coverage:ignore
+			return "", nil, fmt.Errorf("could not CBOR-encode group: %w", err)
+		}
+	}
+
+	return mkeyType, mkeyBytes, nil
+}
+
+func mkeyFromModel(keyType string, keyBytes *[]byte) (*comid.Mkey, error) {
+	if keyBytes == nil {
+		return nil, errors.New("missing mkey data")
+	}
+
+	var mkey *comid.Mkey
+	var err error
+	switch keyType {
+	case comid.OIDType:
+		mkey, err = comid.NewMkeyOID(*keyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("could not initialize OID mkey: %w", err)
+		}
+	case comid.UUIDType:
+		mkey, err = comid.NewMkeyUUID(*keyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("could not initialize UUID mkey: %w", err)
+		}
+	case comid.StringType:
+		mkey, err = comid.NewMkeyString(*keyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("could not initialize string mkey: %w", err)
+		}
+	default:
+		mkey, err = comid.NewMkey(nil, keyType)
+		if err != nil {
+			return nil, err
+		}
+
+		if err = cbor.Unmarshal(*keyBytes, &mkey.Value); err != nil {
+			return nil, fmt.Errorf("could not CBOR-decode mkey: %w", err)
+		}
+	}
+
+	return mkey, nil
 }
 
 func parseVersionScheme(text string) (*swid.VersionScheme, error) {
