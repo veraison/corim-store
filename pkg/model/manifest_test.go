@@ -32,11 +32,9 @@ func TestManifest_round_trip(t *testing.T) {
 		},
 		Measurements: *comid.NewMeasurements().Add(&comid.Measurement{
 			Val: comid.Mval{
-				RawValue: comid.NewRawValue().
-					SetBytes(
-						comid.MustHexDecode(
-							t,
-							"deadbeef")),
+				RawValue: comid.NewRawValueFromBytes(comid.MustHexDecode(
+					t,
+					"deadbeef")),
 			},
 		}),
 	}
@@ -46,18 +44,6 @@ func TestManifest_round_trip(t *testing.T) {
 		TagIdentity: comid.TagIdentity{TagID: *swid.NewTagID("foo"), TagVersion: 1},
 		Triples: comid.Triples{
 			ReferenceValues: comid.NewValueTriples().Add(&testValueTriple),
-		},
-	}
-	testComidCondEnd := comid.Comid{
-		Language:    &testLanguage,
-		Entities:    testEntities,
-		TagIdentity: comid.TagIdentity{TagID: *swid.NewTagID("foo"), TagVersion: 1},
-		Triples: comid.Triples{
-			CondEndorseSeries: comid.NewCondEndorseSeriesTriples().
-				Add(&comid.CondEndorseSeriesTriple{
-					Condition: comid.StatefulEnv(testValueTriple),
-					Series:    *comid.NewCondEndorseSeriesRecords(),
-				}),
 		},
 	}
 	testEpoch := time.Unix(0, 0).UTC()
@@ -72,10 +58,7 @@ func TestManifest_round_trip(t *testing.T) {
 				SetID("bar").
 				SetProfile("1.2.3.4").
 				AddComid(&testComid).
-				AddDependentRim("qux", &swid.HashEntry{
-					HashAlgID: swid.Sha256,
-					HashValue: testHashBytes,
-				}).
+				AddDependentRim("qux", comid.NewDigestIntAlg(comid.Sha256, testHashBytes)).
 				AddEntity("zot", nil, corim.RoleManifestCreator).
 				SetRimValidity(time.Now().UTC(), &testEpoch),
 		},
@@ -98,13 +81,6 @@ func TestManifest_round_trip(t *testing.T) {
 					},
 				}),
 			err: "tag 505 at index 0",
-		},
-		{
-			title: "nok conditional endorsement series in CoMID",
-			man: corim.NewUnsignedCorim().
-				SetID(uuid.UUID(comid.TestUUID)).
-				AddComid(&testComidCondEnd),
-			err: "conditional endorsement series are not supported",
 		},
 	}
 
@@ -177,7 +153,7 @@ func TestManifest_ToCoRIM_nok(t *testing.T) {
 				ManifestID:     "foo",
 				Profile:        "@@@@/",
 			},
-			err: "profile string must be an absolute URL or an ASN.1 OID",
+			err: "unknown profile type",
 		},
 		{
 			title: "bad dependent RIMs",
@@ -186,7 +162,7 @@ func TestManifest_ToCoRIM_nok(t *testing.T) {
 				ManifestID:     "foo",
 				DependentRIMs: []*Locator{
 					{
-						Href:       "http://example.com",
+						Href:       []*Href{&Href{Value: "http://example.com"}},
 						Thumbprint: []*Digest{{}, {}},
 					},
 				},

@@ -31,11 +31,10 @@ func TestModuleTagEntry(t *testing.T) {
 		},
 		Measurements: *comid.NewMeasurements().Add(&comid.Measurement{
 			Val: comid.Mval{
-				RawValue: comid.NewRawValue().
-					SetBytes(
-						comid.MustHexDecode(
-							t,
-							"deadbeef")),
+				RawValue: comid.NewRawValueFromBytes(
+					comid.MustHexDecode(
+						t,
+						"deadbeef")),
 			},
 		}),
 	}
@@ -61,10 +60,7 @@ func TestModuleTagEntry(t *testing.T) {
 		SetProfile("1.2.3.4").
 		AddComid(&testComid).
 		AddComid(&testComid2).
-		AddDependentRim("qux", &swid.HashEntry{
-			HashAlgID: swid.Sha256,
-			HashValue: testHashBytes,
-		}).
+		AddDependentRim("qux", comid.NewDigestIntAlg(comid.Sha256, testHashBytes)).
 		AddEntity("zot", nil, corim.RoleManifestCreator).
 		SetRimValidity(time.Now().UTC(), &testEpoch)
 

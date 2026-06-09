@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/veraison/cmw"
 	"github.com/veraison/corim-store/pkg/model"
+	"github.com/veraison/corim-store/pkg/util"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/coserv"
 	"github.com/veraison/eat"
@@ -50,15 +52,45 @@ func (o *CoSERVService) UpdateCoSERV(value *coserv.Coserv) error {
 // coserv.ResultSet. If profile is specified, only manifests whose profiles
 // match will be considered when running the query.
 func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*coserv.ResultSet, error) {
-	result := coserv.NewResultSet()
+	if err := query.Valid(); err != nil {
+		return nil, fmt.Errorf("invalid query: %w", err)
+	}
 
+	var result *coserv.ResultSet
+	var err error
 	var expiry *time.Time
 
-	switch query.ArtifactType {
+	if query.EnvironmentSelector != nil {
+		result, expiry, err = o.runEnvironmentQuery(profile, query)
+	} else {
+		result, expiry, err = o.runRIMQuery(profile, query)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if expiry != nil {
+		result.SetExpiry(earliest(*expiry, time.Now().Add(o.MaxExpiry)))
+	} else {
+		result.SetExpiry(time.Now().Add(o.MaxExpiry))
+	}
+
+	return result, nil
+}
+
+func (o *CoSERVService) runEnvironmentQuery(
+	profile *eat.Profile,
+	query *coserv.Query,
+) (*coserv.ResultSet, *time.Time, error) {
+	var expiry *time.Time
+	result := coserv.NewResultSet()
+
+	switch *query.ArtifactType {
 	case coserv.ArtifactTypeReferenceValues: // nolint:dupl
 		queryGroup, err := ValueTripleQueryGroupFromCoSERV(query)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if profile != nil {
@@ -69,7 +101,7 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 
 		tripleEntries, err := o.Store.QueryValueTripleEntries(queryGroup)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		triples := make([]*comid.ValueTriple, len(tripleEntries))
@@ -78,12 +110,12 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 
 			model, err := entry.ToTriple(o.Store.Ctx, o.Store.DB)
 			if err != nil {
-				return nil, fmt.Errorf("value triple with ID %d: %w", entry.TripleDbID, err)
+				return nil, nil, fmt.Errorf("value triple with ID %d: %w", entry.TripleDbID, err)
 			}
 
 			triple, err := model.ToCoRIM()
 			if err != nil {
-				return nil, fmt.Errorf("value triple with ID %d: %w", entry.TripleDbID, err)
+				return nil, nil, fmt.Errorf("value triple with ID %d: %w", entry.TripleDbID, err)
 			}
 
 			triples[i] = triple
@@ -95,10 +127,50 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 				RVTriple:    triple,
 			})
 		}
+	case coserv.ArtifactTypeEndorsedValues: // nolint:dupl
+		queryGroup, err := ValueTripleQueryGroupFromCoSERV(query)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if profile != nil {
+			queryGroup.ForEach(func(v *ValueTripleQuery) {
+				v.ProfileFromEAT(profile)
+			})
+		}
+
+		tripleEntries, err := o.Store.QueryValueTripleEntries(queryGroup)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		triples := make([]*comid.ValueTriple, len(tripleEntries))
+		for i, entry := range tripleEntries {
+			updateExpiry(&expiry, entry.NotAfter)
+
+			model, err := entry.ToTriple(o.Store.Ctx, o.Store.DB)
+			if err != nil {
+				return nil, nil, fmt.Errorf("value triple with ID %d: %w", entry.TripleDbID, err)
+			}
+
+			triple, err := model.ToCoRIM()
+			if err != nil {
+				return nil, nil, fmt.Errorf("value triple with ID %d: %w", entry.TripleDbID, err)
+			}
+
+			triples[i] = triple
+		}
+
+		for _, triple := range triples {
+			result.AddEndorsedValues(coserv.EndValQuad{
+				Authorities: comid.NewCryptoKeys().Add(o.FallbackAuthority),
+				EVTriple:    triple,
+			})
+		}
 	case coserv.ArtifactTypeTrustAnchors: // nolint:dupl
 		queryGroup, err := KeyTripleQueryGroupFromCoSERV(query)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if profile != nil {
@@ -109,7 +181,7 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 
 		tripleEntries, err := o.Store.QueryKeyTripleEntries(queryGroup)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		triples := make([]*comid.KeyTriple, len(tripleEntries))
@@ -118,12 +190,12 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 
 			model, err := entry.ToTriple(o.Store.Ctx, o.Store.DB)
 			if err != nil {
-				return nil, fmt.Errorf("key triple with ID %d: %w", entry.TripleDbID, err)
+				return nil, nil, fmt.Errorf("key triple with ID %d: %w", entry.TripleDbID, err)
 			}
 
 			triple, err := model.ToCoRIM()
 			if err != nil {
-				return nil, fmt.Errorf("key triple with ID %d: %w", entry.TripleDbID, err)
+				return nil, nil, fmt.Errorf("key triple with ID %d: %w", entry.TripleDbID, err)
 			}
 
 			triples[i] = triple
@@ -136,32 +208,165 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 			})
 		}
 	default:
-		return nil, fmt.Errorf("unsupported artifact type: %s", query.ArtifactType.String())
+		return nil, nil, fmt.Errorf("unsupported artifact type: %s", query.ArtifactType.String())
 	}
 
-	if expiry != nil {
-		result.SetExpiry(earliest(*expiry, time.Now().Add(o.MaxExpiry)))
-	} else {
-		result.SetExpiry(time.Now().Add(o.MaxExpiry))
+	return result, expiry, nil
+}
+
+func (o *CoSERVService) runRIMQuery(
+	profile *eat.Profile,
+	query *coserv.Query,
+) (*coserv.ResultSet, *time.Time, error) {
+	if query.RimSelector == nil {
+		return nil, nil, errors.New("no RIM selectors specified")
 	}
 
-	return result, nil
+	rimCollection, err := cmw.NewCollection("")
+	if err != nil {
+		return nil, nil, fmt.Errorf("CMW collection: %w", err)
+	}
+
+	var expiry *time.Time
+
+	var manifestID string
+	var manifestDbID int64
+	var notAfter *time.Time
+	for i, selector := range *query.RimSelector {
+		switch selector.Type {
+		case coserv.RimSelectorTypeCorim:
+			query := NewManifestQuery().
+				ManifestIDFromSWID(selector.TagID).
+				ProfileFromEAT(profile).
+				ValidOn(time.Now())
+
+			entries, err := o.Store.QueryManifestEntries(query)
+			if err != nil {
+				if errors.Is(err, ErrNoMatch) {
+					continue
+				}
+
+				return nil, nil, fmt.Errorf("RIM selector %d: %w", i, err)
+			}
+
+			if len(entries) > 1 {
+				return nil, nil, fmt.Errorf("non-unique Manifest ID %v", selector.TagID)
+			}
+
+			manifestID, manifestDbID = entries[0].ManifestID, entries[0].ManifestDbID
+			notAfter = entries[0].NotAfter
+		case coserv.RimSelectorTypeComid:
+			query := NewModuleTagQuery().
+				ModuleTagIDFromSWID(selector.TagID).
+				ProfileFromEAT(profile).
+				ValidOn(time.Now())
+
+			entries, err := o.Store.QueryModuleTagEntries(query)
+			if err != nil {
+				if errors.Is(err, ErrNoMatch) {
+					continue
+				}
+
+				return nil, nil, fmt.Errorf("RIM selector %d: %w", i, err)
+			}
+
+			selectedModuleTag := entries[0]
+			if len(entries) > 1 {
+				for _, moduleTag := range entries[1:] {
+					if moduleTag.ModuleTagVersion > selectedModuleTag.ModuleTagVersion {
+						selectedModuleTag = moduleTag
+					}
+				}
+			}
+
+			manifestID, manifestDbID = selectedModuleTag.ManifestID, selectedModuleTag.ManifestDbID
+			notAfter = entries[0].NotAfter
+		case coserv.RimSelectorTypeCoswid:
+			return nil, nil, errors.New("CoSWID selectors not supported")
+		default:
+			return nil, nil, fmt.Errorf("unknown selector")
+		}
+
+		updateExpiry(&expiry, notAfter)
+
+		cmwEntry, err := o.getRIMEntryFromID(profile, manifestID, manifestDbID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("manifest %q: %w", manifestID, err)
+		}
+
+		if err := rimCollection.AddCollectionItem(manifestID, cmwEntry); err != nil {
+			return nil, nil, fmt.Errorf("CMW entry %q: %w", manifestID, err)
+		}
+	}
+
+	result := coserv.NewResultSet().SetRIMs(*rimCollection)
+	return result, expiry, nil
+}
+
+func (o *CoSERVService) getRIMEntryFromID(
+	profile *eat.Profile,
+	manifestID string,
+	dbID int64,
+) (*cmw.CMW, error) {
+	bytes, err := o.Store.GetTokenBytes(manifestID)
+	if err != nil {
+		if err != ErrNoMatch {
+			return nil, err
+		}
+
+		manifest := model.Manifest{ID: dbID}
+		if err := manifest.Select(o.Store.Ctx, o.Store.DB); err != nil {
+			return nil, err
+		}
+
+		unsigned, err := manifest.ToCoRIM()
+		if err != nil {
+			return nil, err
+		}
+
+		bytes, err = unsigned.ToCBOR()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	contentType := "application/rim+cbor"
+	if util.IsSignedCoRIM(bytes) {
+		contentType = "application/rim+cose"
+	}
+
+	if profile != nil && (profile.IsURI() || profile.IsOID()) {
+		profileValue, err := profile.Get()
+		if err != nil {
+			return nil, fmt.Errorf("profile: %w", err)
+		}
+
+		contentType = fmt.Sprintf("%s; profile=%q", contentType, profileValue)
+	}
+
+	return cmw.NewMonad(contentType, bytes)
 }
 
 func ValueTripleQueryGroupFromCoSERV(cq *coserv.Query) (*ValueTripleQueryGroup, error) { // nolint:dupl
-	if cq.ResultType != coserv.ResultTypeCollectedArtifacts {
+	if cq.ResultType == nil {
+		return nil, errors.New("result type not set")
+	}
+
+	if cq.ArtifactType == nil {
+		return nil, errors.New("artifact type not set")
+	}
+
+	if *cq.ResultType != coserv.ResultTypeCollectedArtifacts {
 		return nil, errors.New("only collected results are supported right now")
 	}
 
 	var tripleType model.ValueTripleType
 
-	switch cq.ArtifactType {
+	switch *cq.ArtifactType {
 	case coserv.ArtifactTypeReferenceValues:
 		tripleType = model.ReferenceValueTriple
-	// TODO(setrofim): while the store supportes endored values, coserv
-	// implemementation in corim library doesn't at the time of writing.
-	// case coserv.ArtifactTypeEndorsedValues:
-	// tripleType = model.EndorsedValueTriple
+	case coserv.ArtifactTypeEndorsedValues:
+		tripleType = model.EndorsedValueTriple
 	default:
 		return nil, fmt.Errorf("unsupported triple type: %s", cq.ArtifactType.String())
 	}
@@ -279,13 +484,21 @@ func ValueTripleQueryFromStatefulGroup(statefulGroup *coserv.StatefulGroup) (*Va
 }
 
 func KeyTripleQueryGroupFromCoSERV(cq *coserv.Query) (*KeyTripleQueryGroup, error) { // nolint:dupl
-	if cq.ResultType != coserv.ResultTypeCollectedArtifacts {
+	if cq.ResultType == nil {
+		return nil, errors.New("result type not set")
+	}
+
+	if cq.ArtifactType == nil {
+		return nil, errors.New("artifact type not set")
+	}
+
+	if *cq.ResultType != coserv.ResultTypeCollectedArtifacts {
 		return nil, errors.New("only collected results are supported right now")
 	}
 
 	var tripleType model.KeyTripleType
 
-	switch cq.ArtifactType {
+	switch *cq.ArtifactType {
 	case coserv.ArtifactTypeTrustAnchors:
 		tripleType = model.AttestKeyTriple
 	default:

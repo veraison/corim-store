@@ -70,6 +70,9 @@ type KeyTriple struct {
 	Type    KeyTripleType
 	KeyList []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:key_triple"`
 
+	ConditionKeyType  *string `bun:"cond_key_type"`
+	ConditionKeyBytes *[]byte `bun:"cond_key_bytes"`
+
 	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:key_triple_auth"`
 
 	IsActive bool
@@ -118,11 +121,32 @@ func (o *KeyTriple) FromCoRIM(origin *comid.KeyTriple) error {
 
 	keys, err := CryptoKeysFromCoRIM(&origin.VerifKeys)
 	if err != nil {
-		return err
+		return fmt.Errorf("key list: %w", err)
 	}
 
 	o.KeyList = keys
 	o.Environment = &env
+
+	if origin.Conditions != nil {
+		if origin.Conditions.Mkey != nil {
+			keyType, keyBytes, err := mkeyToModel(origin.Conditions.Mkey)
+			if err != nil {
+				return fmt.Errorf("condition(key): %w", err)
+			}
+
+			o.ConditionKeyType = &keyType
+			o.ConditionKeyBytes = &keyBytes
+		}
+
+		if origin.Conditions.AuthorizedBy != nil {
+			keys, err := CryptoKeysFromCoRIM(origin.Conditions.AuthorizedBy)
+			if err != nil {
+				return fmt.Errorf("condition(authorized-by): %w", err)
+			}
+
+			o.AuthorizedBy = keys
+		}
+	}
 
 	return nil
 }
@@ -142,6 +166,31 @@ func (o *KeyTriple) ToCoRIM() (*comid.KeyTriple, error) {
 	}
 	ret.VerifKeys = *keys
 
+	var condition *comid.KeyTripleCondition
+	if o.AuthorizedBy != nil {
+		keys, err := CryptoKeysToCoRIM(o.AuthorizedBy)
+		if err != nil {
+			return nil, fmt.Errorf("condition(authorized-by): %w", err)
+		}
+
+		condition = &comid.KeyTripleCondition{AuthorizedBy: keys}
+	}
+
+	if o.ConditionKeyType != nil {
+		mkey, err := mkeyFromModel(*o.ConditionKeyType, o.ConditionKeyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("condition(mkey): %w", err)
+		}
+
+		if condition == nil {
+			condition = &comid.KeyTripleCondition{}
+		}
+
+		condition.Mkey = mkey
+	}
+
+	ret.Conditions = condition
+
 	return &ret, nil
 }
 
@@ -160,6 +209,11 @@ func (o *KeyTriple) Validate() error {
 
 	if len(o.KeyList) == 0 {
 		return errors.New("empty key list")
+	}
+
+	if (o.ConditionKeyType == nil && o.ConditionKeyBytes != nil) ||
+		(o.ConditionKeyType != nil && o.ConditionKeyBytes == nil) {
+		return errors.New("ConditionKeyBytes and ConditionKeyType must both be set or unset")
 	}
 
 	return nil

@@ -102,7 +102,9 @@ func (o *Environment) FromCoRIM(origin *comid.Environment) error {
 		var instanceBytes []byte
 
 		switch instanceType {
-		case "ueid", comid.UUIDType, comid.BytesType:
+		case comid.UEIDType, comid.UUIDType, comid.BytesType, comid.PKIXAsn1DerCertType,
+			comid.PKIXBase64KeyType, comid.PKIXBase64CertType, comid.ThumbprintType, comid.CertThumbprintType,
+			comid.COSEKeyType:
 			instanceBytes = origin.Instance.Bytes()
 		default:
 			instanceBytes, err = origin.Instance.MarshalCBOR()
@@ -190,20 +192,18 @@ func (o Environment) ToCoRIM() (*comid.Environment, error) {
 		}
 
 		switch *o.InstanceType {
-		case comid.UUIDType:
-			ret.Instance, err = comid.NewUUIDInstance(*o.InstanceBytes)
+		case comid.UUIDType, comid.UEIDType, comid.BytesType, comid.PKIXAsn1DerCertType,
+			comid.ThumbprintType, comid.CertThumbprintType, comid.COSEKeyType:
+			ret.Instance, err = comid.NewInstance(*o.InstanceBytes, *o.InstanceType)
 			if err != nil {
-				return nil, fmt.Errorf("could not initialize UUID instance: %w", err)
+				return nil, fmt.Errorf("could not initialize %s instance: %w",
+					*o.InstanceType, err)
 			}
-		case "ueid":
-			ret.Instance, err = comid.NewUEIDInstance(*o.InstanceBytes)
+		case comid.PKIXBase64KeyType, comid.PKIXBase64CertType:
+			ret.Instance, err = comid.NewInstance(string(*o.InstanceBytes), *o.InstanceType)
 			if err != nil {
-				return nil, fmt.Errorf("could not initialize UEID instance: %w", err)
-			}
-		case comid.BytesType:
-			ret.Instance, err = comid.NewBytesInstance(*o.InstanceBytes)
-			if err != nil {
-				return nil, fmt.Errorf("could not initialize bytes instance: %w", err)
+				return nil, fmt.Errorf("could not initialize %s instance: %w",
+					*o.InstanceType, err)
 			}
 		default:
 			ret.Instance, err = comid.NewInstance(nil, *o.InstanceType)

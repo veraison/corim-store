@@ -14,12 +14,12 @@
       code_point: 11 # name
       value_type: string
       value_text: foo
-      measurement_id: 1
+      measurement_id: 3
     - id: 3
       code_point: 1 # svn
       value_type: exact-value
       value_int: 42
-      measurement_id: 1
+      measurement_id: 6
     - id: 4
       code_point: 10 # uuid
       value_type: bytes
@@ -45,3 +45,8 @@
       value_type: string
       value_text: "12345"
       measurement_id: 1
+    - id: 8
+      code_point: 1 # svn
+      value_type: exact-value
+      value_int: 42
+      measurement_id: 5

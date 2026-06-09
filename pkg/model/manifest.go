@@ -11,7 +11,6 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
-	"github.com/veraison/eat"
 	"github.com/veraison/swid"
 )
 
@@ -102,18 +101,8 @@ func (o *Manifest) FromCoRIM(origin *corim.UnsignedCorim) error {
 	}
 
 	if origin.Profile != nil {
-		o.Profile, err = origin.Profile.Get()
-		if err != nil {
-			return fmt.Errorf("profile: %w", err)
-		}
-
-		if origin.Profile.IsOID() { // nolint:gocritic
-			o.ProfileType = OIDProfile
-		} else if origin.Profile.IsURI() {
-			o.ProfileType = URIProfile
-		} else {
-			return fmt.Errorf("invalid profile in origin: %+v", origin.Profile)
-		}
+		o.Profile = origin.Profile.String()
+		o.ProfileType = ProfileType(origin.Profile.Type())
 	}
 
 	o.DependentRIMs, err = LocatorsFromCoRIM(origin.DependentRims)
@@ -187,7 +176,7 @@ func (o *Manifest) ToCoRIM() (*corim.UnsignedCorim, error) {
 	ret.ID = *manifestID
 
 	if o.Profile != "" {
-		ret.Profile, err = eat.NewProfile(o.Profile)
+		ret.Profile, err = corim.NewProfile(o.Profile, string(o.ProfileType))
 		if err != nil {
 			return nil, fmt.Errorf("profile: %w", err)
 		}

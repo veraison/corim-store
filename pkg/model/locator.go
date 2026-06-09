@@ -8,7 +8,6 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/veraison/corim/comid"
 	"github.com/veraison/corim/corim"
-	"github.com/veraison/swid"
 )
 
 func LocatorsFromCoRIM(origin *[]corim.Locator) ([]*Locator, error) {
@@ -52,7 +51,7 @@ type Locator struct {
 
 	ID int64 `bun:",pk,autoincrement"`
 
-	Href       string
+	Href       []*Href   `bun:"rel:has-many,join:id=locator_id"`
 	Thumbprint []*Digest `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:locator"`
 
 	ManifestID int64
@@ -81,30 +80,26 @@ func (o *Locator) IsTable() bool {
 }
 
 func (o *Locator) ToCoRIM() (corim.Locator, error) {
-	ret := corim.Locator{
-		Href: comid.TaggedURI(o.Href),
+	digests, err := DigestsToCoRIM(o.Thumbprint)
+	if err != nil {
+		return corim.Locator{}, fmt.Errorf("digests: %w", err)
 	}
-
-	if len(o.Thumbprint) == 1 {
-		ret.Thumbprint = &swid.HashEntry{
-			HashAlgID: o.Thumbprint[0].AlgID,
-			HashValue: o.Thumbprint[0].Value,
-		}
-	} else if len(o.Thumbprint) > 1 {
-		return corim.Locator{}, errors.New("multiple digests not supported by corim library")
+	ret := corim.Locator{
+		Href:       HrefsToCoRIM(o.Href),
+		Thumbprint: (*corim.OneOrMore[comid.Digest])(digests),
 	}
 
 	return ret, nil
 }
 
 func (o *Locator) FromCoRIM(origin corim.Locator) error {
-	o.Href = string(origin.Href)
-
-	if origin.Thumbprint != nil {
-		o.Thumbprint = []*Digest{
-			NewDigest(origin.Thumbprint.HashAlgID, origin.Thumbprint.HashValue),
-		}
+	digests, err := DigestsFromCoRIM((*comid.Digests)(origin.Thumbprint))
+	if err != nil {
+		return fmt.Errorf("digests: %w", err)
 	}
+
+	o.Href = HrefsFromCoRIM(origin.Href)
+	o.Thumbprint = digests
 
 	return nil
 }
@@ -112,6 +107,14 @@ func (o *Locator) FromCoRIM(origin corim.Locator) error {
 func (o *Locator) Insert(ctx context.Context, db bun.IDB) error {
 	if _, err := db.NewInsert().Model(o).Exec(ctx); err != nil {
 		return err
+	}
+
+	for i, href := range o.Href {
+		href.LocatorID = o.ID
+
+		if err := href.Insert(ctx, db); err != nil {
+			return fmt.Errorf("error inserting href %d: %w", i, err)
+		}
 	}
 
 	for i, digest := range o.Thumbprint {
@@ -133,6 +136,7 @@ func (o *Locator) Select(ctx context.Context, db bun.IDB) error {
 
 	err := db.NewSelect().
 		Model(o).
+		Relation("Href").
 		Relation("Thumbprint").
 		Where("loc.id = ?", o.ID).
 		Scan(ctx)
@@ -147,6 +151,12 @@ func (o *Locator) Select(ctx context.Context, db bun.IDB) error {
 func (o *Locator) Delete(ctx context.Context, db bun.IDB) error {
 	if o.ID == 0 {
 		return errors.New("ID not set")
+	}
+
+	for i, href := range o.Href {
+		if err := href.Delete(ctx, db); err != nil {
+			return fmt.Errorf("href at index %d: %w", i, err)
+		}
 	}
 
 	for i, digest := range o.Thumbprint {

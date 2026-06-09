@@ -8,11 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/veraison/corim/comid"
-	"github.com/veraison/swid"
 )
 
 var testDigest = Digest{
-	AlgID: 1,
+	AlgIDInt: 1,
 	Value: []byte{
 		0xe4, 0x5b, 0x72, 0xf5, 0xc0, 0xc0, 0xb5, 0x72,
 		0xdb, 0x4d, 0x8d, 0x3a, 0xb7, 0xe9, 0x7f, 0x36,
@@ -22,13 +21,8 @@ var testDigest = Digest{
 }
 
 func TestIntegrityRegister_round_trip(t *testing.T) {
-	originDigest := swid.HashEntry{
-		HashAlgID: swid.Sha256,
-		HashValue: comid.MustHexDecode(
-			t,
-			"e45b72f5c0c0b572db4d8d3ab7e97f368ff74e62347a824decb67a84e5224d75",
-		),
-	}
+	digestBytes := comid.MustHexDecode(t, "e45b72f5c0c0b572db4d8d3ab7e97f368ff74e62347a824decb67a84e5224d75")
+	originDigest := *comid.NewDigestIntAlg(comid.Sha256, digestBytes)
 	idxOne := uint(1)
 	idxOne64 := uint64(1)
 	idxTwo := uint64(2)

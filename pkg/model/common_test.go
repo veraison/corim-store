@@ -17,7 +17,7 @@ func TestRegisterModel(t *testing.T) {
 
 func TestResetModels(t *testing.T) {
 	db := NewTestDB(t)
-	digest := NewDigest(1, []byte{0xde, 0xad, 0xbe, 0xef})
+	digest := NewDigestInt(1, []byte{0xde, 0xad, 0xbe, 0xef})
 	ctx := context.Background()
 	query := db.NewSelect().TableExpr("digests").ColumnExpr("id")
 

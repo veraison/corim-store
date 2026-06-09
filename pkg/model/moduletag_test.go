@@ -42,11 +42,10 @@ func TestModuleTag_round_trip(t *testing.T) {
 						},
 						Measurements: *comid.NewMeasurements().Add(&comid.Measurement{
 							Val: comid.Mval{
-								RawValue: comid.NewRawValue().
-									SetBytes(
-										comid.MustHexDecode(
-											t,
-											"deadbeef")),
+								RawValue: comid.NewRawValueFromBytes(
+									comid.MustHexDecode(
+										t,
+										"deadbeef")),
 							},
 						}),
 					}),

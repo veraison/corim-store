@@ -1,8 +1,14 @@
 - model: Locator
   rows:
     - id: 1
-      href: foo
       manifest_id: 1
     - id: 2
-      href: bar
       manifest_id: 2
+- model: Href
+  rows:
+    - id: 1
+      value: foo
+      locator_id: 1
+    - id: 2
+      value: bar
+      locator_id: 2

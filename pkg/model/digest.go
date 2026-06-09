@@ -3,10 +3,11 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/uptrace/bun"
 	"github.com/veraison/corim/comid"
-	"github.com/veraison/swid"
 )
 
 func DigestsFromCoRIM(origin *comid.Digests) ([]*Digest, error) {
@@ -16,8 +17,12 @@ func DigestsFromCoRIM(origin *comid.Digests) ([]*Digest, error) {
 
 	ret := make([]*Digest, 0, len(*origin))
 
-	for _, hashEntry := range *origin {
-		ret = append(ret, &Digest{AlgID: hashEntry.HashAlgID, Value: hashEntry.HashValue})
+	for _, digest := range *origin {
+		if digest.Algorithm.IsString() {
+			ret = append(ret, NewDigestText(digest.Algorithm.String(), digest.Value))
+		} else {
+			ret = append(ret, NewDigestInt(int64(digest.Algorithm.Int()), digest.Value))
+		}
 	}
 
 	return ret, nil
@@ -30,8 +35,19 @@ func DigestsToCoRIM(origin []*Digest) (*comid.Digests, error) {
 
 	ret := make(comid.Digests, 0, len(origin))
 
-	for _, digest := range origin {
-		ret = append(ret, swid.HashEntry{HashAlgID: digest.AlgID, HashValue: digest.Value})
+	for i, digest := range origin {
+		var corimDigest comid.Digest
+		if digest.AlgIDText != "" {
+			corimDigest = *comid.NewDigestStringAlg(digest.AlgIDText, digest.Value)
+		} else {
+			corimDigest = *comid.NewDigestIntAlg(int(digest.AlgIDInt), digest.Value)
+		}
+
+		if err := corimDigest.Valid(); err != nil {
+			return nil, fmt.Errorf("digest[%d]: %w", i, err)
+		}
+
+		ret = append(ret, corimDigest)
 	}
 
 	return &ret, nil
@@ -42,17 +58,25 @@ type Digest struct {
 
 	ID int64 `bun:",pk,autoincrement"`
 
-	AlgID uint64
-	Value []byte
+	AlgIDInt  int64  `bun:"alg_id_int"`
+	AlgIDText string `bun:"alg_id_text"`
+	Value     []byte `bun:"value"`
 
 	OwnerID   int64  `bun:",nullzero"`
 	OwnerType string `bun:",nullzero"`
 }
 
-func NewDigest(alg_id uint64, val []byte) *Digest {
+func NewDigestInt(alg_id int64, val []byte) *Digest {
 	return &Digest{
-		AlgID: alg_id,
-		Value: val,
+		AlgIDInt: alg_id,
+		Value:    val,
+	}
+}
+
+func NewDigestText(alg_id string, val []byte) *Digest {
+	return &Digest{
+		AlgIDText: alg_id,
+		Value:     val,
 	}
 }
 
@@ -66,6 +90,22 @@ func (o *Digest) TableName() string {
 
 func (o *Digest) IsTable() bool {
 	return true
+}
+
+func (o *Digest) AlgID() any {
+	if o.AlgIDInt != 0 {
+		return o.AlgIDInt
+	}
+
+	return o.AlgIDText
+}
+
+func (o *Digest) AlgIDString() string {
+	if o.AlgIDText != "" {
+		return o.AlgIDText
+	}
+
+	return strconv.Itoa(int(o.AlgIDInt))
 }
 
 func (o *Digest) Insert(ctx context.Context, db bun.IDB) error {

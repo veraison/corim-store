@@ -28,6 +28,12 @@ func TestKeyTriple_round_trip(t *testing.T) {
 				VerifKeys: *comid.NewCryptoKeys().
 					Add(comid.MustNewCryptoKey(comid.TestECPubKey, comid.PKIXBase64KeyType)).
 					Add(comid.MustNewCryptoKey(comid.TestCert, comid.PKIXBase64CertType)),
+				Conditions: &comid.KeyTripleCondition{
+					Mkey: comid.MustNewMkey("foo", "string"),
+					AuthorizedBy: comid.NewCryptoKeys().Add(comid.MustNewCryptoKeyTaggedBytes(
+						[]byte{0x07, 0x08, 0x09},
+					)),
+				},
 			},
 		},
 	}

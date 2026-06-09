@@ -3,7 +3,9 @@ package model
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"github.com/veraison/swid"
 )
 
 type TagIDType string
@@ -38,6 +40,24 @@ type Model interface {
 	Select(context.Context, bun.IDB) error
 }
 
+// ParseSWIDTagID convets a swid.TagID into a string representation of its
+// value and a TagIDType indicting the value's type.
+func ParseSWIDTagID(tag swid.TagID) (TagIDType, string) {
+	tagID := tag.String()
+
+	// swid.TagID does not expose the underlying type in any way, but we
+	// need it to correctly reconstruct it inside ToCoRIM(), so we guess
+	// by seeing if the ID parses as a valid UUID.
+	var typ TagIDType
+	if _, err := uuid.Parse(tagID); err == nil {
+		typ = UUIDTagID
+	} else {
+		typ = StringTagID
+	}
+
+	return typ, tagID
+}
+
 var tableModels = []any{
 	(*CryptoKey)(nil),
 	(*Digest)(nil),
@@ -45,6 +65,7 @@ var tableModels = []any{
 	(*Environment)(nil),
 	(*ExtensionValue)(nil),
 	(*Flag)(nil),
+	(*Href)(nil),
 	(*IntegrityRegister)(nil),
 	(*KeyTriple)(nil),
 	(*LinkedTag)(nil),
