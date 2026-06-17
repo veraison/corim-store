@@ -96,7 +96,15 @@ Targets:
 	Run unit tests. Set TEST_DB_FILE to specify the path for the sqlite DB
 	file to be used for tests (by default in-memory DB is used).
 	Placeholder sequence @test@ inside TEST_DB_FILE will be replace by the
-	name of the test.
+	name of the test. Alternatively, TEST_DBMS variable may be set to either
+	"postgres" or "mariadb" to run the tests against corresponding database
+	server. The Docker container with the database servers must first be
+	manually stated via scripts/db-container.sh script (run the script with
+	-h flag to see its help output for details).
+    test-dbms:
+	Run unit tests (as with "test" target above) against PostgreSQL and
+	MariaDB. A Docker container with these servers is automatically started
+	prior to running the tests, and shut down after test execution.
     integ-test:
         Run integration tests. These rely on a Docker container running database
         servers.
