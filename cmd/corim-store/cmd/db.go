@@ -256,9 +256,31 @@ var saveFixturesCmd = &cobra.Command{
 }
 
 var tableSelectors = []string{
-	"crypto-keys", "digests", "entities", "environments", "extensions", "integrity-registers",
-	"key-triples", "linked-tags", "locators", "manifests", "measurements", "measurement-values",
-	"module-tags", "roles", "value-triples",
+	"conditional-endorsement-series-records",
+	"conditional-endorsement-series-triples",
+	"conditional-endorsement-triples",
+	"crypto-keys",
+	"digests",
+	"domain-dependency-triples",
+	"domain-entries",
+	"domain-membership-triples",
+	"entities",
+	"environments",
+	"extensions",
+	"flags",
+	"hrefs",
+	"integrity-registers",
+	"key-triples",
+	"linked-tags",
+	"locators",
+	"manifests",
+	"measurement-values",
+	"measurements",
+	"module-tags",
+	"roles",
+	"stateful-environments",
+	"value-triples",
+	"tokens",
 }
 
 func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any, error) {
@@ -300,6 +322,38 @@ func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any
 	}
 
 	var ret []any
+	if all && !flags["no-conditional-endorsement-series-records"] ||
+		flags["conditional-endorsement-series-records"] {
+
+		selected, err := selectModel[model.ConditionalEndorsementSeriesRecord](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting conditional endorsement series triples: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-conditional-endorsement-series-triples"] ||
+		flags["conditional-endorsement-series-triples"] {
+
+		selected, err := selectModel[model.ConditionalEndorsementSeriesTriple](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting conditional endorsement series triples: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-conditional-endorsement-triples"] ||
+		flags["conditional-endorsement-triples"] {
+
+		selected, err := selectModel[model.ConditionalEndorsementTriple](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting conditional endorsement triples: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
 
 	if all && !flags["no-crypto-keys"] || flags["crypto-keys"] {
 		selected, err := selectModel[model.CryptoKey](db, ctx)
@@ -314,6 +368,33 @@ func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any
 		selected, err := selectModel[model.Digest](db, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error selecting digests: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-domain-dependency-triples"] || flags["domain-dependency-triples"] {
+		selected, err := selectModel[model.DomainDependencyTriple](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting domain dependency triples: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-domain-entries"] || flags["domain-entries"] {
+		selected, err := selectModel[model.DomainEntry](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting domain entries: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-domain-membership-triples"] || flags["domain-membership-triples"] {
+		selected, err := selectModel[model.DomainMembershipTriple](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting domain membership triples: %w", err)
 		}
 
 		ret = append(ret, selected)
@@ -350,6 +431,15 @@ func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any
 		selected, err := selectModel[model.Flag](db, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error selecting flags: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-hrefs"] || flags["hrefs"] {
+		selected, err := selectModel[model.Href](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting hrefs: %w", err)
 		}
 
 		ret = append(ret, selected)
@@ -436,10 +526,28 @@ func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any
 		ret = append(ret, selected)
 	}
 
-	if all && !flags["value-triples"] || flags["value-triples"] {
+	if all && !flags["no-stateful-environments"] || flags["stateful-environments"] {
+		selected, err := selectModel[model.StatefulEnvironment](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting stateful environments: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-value-triples"] || flags["value-triples"] {
 		selected, err := selectModel[model.ValueTriple](db, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error selecting value triples: %w", err)
+		}
+
+		ret = append(ret, selected)
+	}
+
+	if all && !flags["no-tokens"] || flags["tokens"] {
+		selected, err := selectModel[model.Token](db, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error selecting tokens: %w", err)
 		}
 
 		ret = append(ret, selected)

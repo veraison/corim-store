@@ -272,7 +272,7 @@ func (o *Manifest) Insert(ctx context.Context, db bun.IDB) error {
 	return nil
 }
 
-func (o *Manifest) Select(ctx context.Context, db bun.IDB) error {
+func (o *Manifest) Select(ctx context.Context, db bun.IDB) error { // nolint:dupl
 	if o.ID == 0 {
 		return errors.New("ID not set")
 	}

@@ -1,0 +1,13 @@
+- model: StatefulEnvironment
+  rows:
+    - id: 1
+      environment_id: 6
+      triple_id: 1
+    - id: 2
+      environment_id: 7
+      triple_id: 2
+    - id: 3
+      environment_id: 1
+      triple_id: 999
+
+

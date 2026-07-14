@@ -34,6 +34,8 @@ func TestLocator_model_methods(t *testing.T) {
 	assert.Equal(t, lt.ID, lt.DbID())
 	assert.Equal(t, "locators", lt.TableName())
 	assert.True(t, lt.IsTable())
+	assert.Equal(t, lt.ManifestID, lt.OwnerDbID())
+	assert.Equal(t, "manifest", lt.OwnerName())
 }
 
 func TestLocator_Delete(t *testing.T) {

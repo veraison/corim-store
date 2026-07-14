@@ -8,44 +8,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKeyTripleEntry_Select(t *testing.T) {
+func TestConditionalEndorsementTripleEntry_Select(t *testing.T) { // nolint:dupl
 	ctx := context.Background()
 	db := NewTestDBWithFixtures(t, map[string][]byte{
-		"sample.yaml": keyAndValueSampleFixture,
+		"sample.yaml": conditionalAndDomainSampleFixture,
 	})
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	kte := KeyTripleEntry{TripleDbID: 1}
-	err := kte.Select(ctx, db)
+	cete := ConditionalEndorsementTripleEntry{TripleDbID: 1}
+	err := cete.Select(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, "cca-ta", kte.ManifestID)
-	assert.Equal(t, "en-GB", *kte.Language)
-	assert.Equal(t, kte.TripleDbID, kte.DbID())
-	assert.Equal(t, "key_triple_entries", kte.TableName())
-	assert.False(t, kte.IsTable())
+	assert.Equal(t, "sample-manifest", cete.ManifestID)
 
-	expectedEnv := Environment{ID: kte.EnvironmentID}
+	expectedEnv := Environment{ID: 1}
 	err = expectedEnv.Select(ctx, db)
 	require.NoError(t, err)
 
-	vt, err := kte.ToTriple(ctx, db)
+	cet, err := cete.ToTriple(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedEnv, *vt.Environment)
+	assert.Equal(t, expectedEnv, *cet.Conditions[0].Environment)
 
-	manifest, err := kte.ToManifest(ctx, db)
+	manifest, err := cete.ToManifest(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, kte.ManifestID, manifest.ManifestID)
+	assert.Equal(t, cete.ManifestID, manifest.ManifestID)
 
-	moduleTag, err := kte.ToModuleTag(ctx, db)
+	moduleTag, err := cete.ToModuleTag(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, kte.ModuleTagID, moduleTag.TagID)
+	assert.Equal(t, cete.ModuleTagID, moduleTag.TagID)
 }
 
-func TestKeyTripleEntry_nok(t *testing.T) { // nolint:dupl
+func TestConditionalEndorsementTripleEntry_model_methods(t *testing.T) {
+	val := ConditionalEndorsementTripleEntry{TripleDbID: 1}
+	assert.Equal(t, val.TripleDbID, val.DbID())
+	assert.Equal(t, "conditional_endorsement_triple_entries", val.TableName())
+	assert.False(t, val.IsTable())
+}
+
+func TestConditionalEndorsementTripleEntry_nok(t *testing.T) { // nolint:dupl
 	ctx := context.Background()
 	db := NewTestDB(t)
 
-	val := KeyTripleEntry{}
+	val := ConditionalEndorsementTripleEntry{}
 	err := val.Select(ctx, db)
 	assert.ErrorContains(t, err, "TripleDbID not set")
 

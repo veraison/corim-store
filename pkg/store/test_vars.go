@@ -46,6 +46,9 @@ var (
 	//go:embed  fixtures/environments.yaml
 	environmentsFixture []byte
 
+	//go:embed  fixtures/stateful_environments.yaml
+	statefulEnvironmentsFixture []byte
+
 	//go:embed  fixtures/triples.yaml
 	triplesFixture []byte
 

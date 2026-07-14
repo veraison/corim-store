@@ -85,6 +85,14 @@ func (o *CryptoKey) DbID() int64 {
 	return o.ID
 }
 
+func (o *CryptoKey) OwnerDbID() int64 {
+	return o.OwnerID
+}
+
+func (o *CryptoKey) OwnerName() string {
+	return o.OwnerType
+}
+
 func (o *CryptoKey) TableName() string {
 	return "cryptokeys"
 }
@@ -109,23 +117,23 @@ func (o *CryptoKey) FromCoRIM(origin *comid.CryptoKey) error {
 	case comid.BytesType, comid.COSEKeyType:
 		switch t := origin.Value.(type) {
 		case comid.TaggedBytes:
-			// coverage: ignore
+			// coverage:ignore
 			keyBytes = []byte(t)
 		case *comid.TaggedBytes:
 			keyBytes = []byte(*t)
 		case comid.TaggedCOSEKey:
+			// coverage:ignore
 			keyBytes = []byte(t)
 		case *comid.TaggedCOSEKey:
-			// coverage: ignore
 			keyBytes = []byte(*t)
 		default:
-			// coverage: ignore
+			// coverage:ignore
 			return fmt.Errorf("expected crypto key bytes, found: %T", t)
 		}
 	default:
 		keyBytes, err = origin.MarshalCBOR()
 		if err != nil {
-			// coverage: ignore
+			// coverage:ignore
 			return fmt.Errorf("could not CBOR-encode crypto key: %w", err)
 		}
 	}

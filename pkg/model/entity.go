@@ -133,6 +133,14 @@ func (o *Entity) IsTable() bool {
 	return true
 }
 
+func (o *Entity) OwnerDbID() int64 {
+	return o.OwnerID
+}
+
+func (o *Entity) OwnerName() string {
+	return o.OwnerType
+}
+
 func (o *Entity) FromCoRIMCoRIM(origin *corim.Entity) error {
 	var err error
 

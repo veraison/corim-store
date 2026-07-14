@@ -101,4 +101,6 @@ func TestRoleEntry_model_methods(t *testing.T) {
 	assert.Equal(t, val.ID, val.DbID())
 	assert.Equal(t, "roles", val.TableName())
 	assert.True(t, val.IsTable())
+	assert.Equal(t, val.EntityID, val.OwnerDbID())
+	assert.Equal(t, "entity", val.OwnerName())
 }

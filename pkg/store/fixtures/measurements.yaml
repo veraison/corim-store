@@ -11,7 +11,7 @@
       key_type: uuid
       key_bytes: [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x80, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
       ]
       owner_id: 3
       owner_type: value_triple
@@ -43,4 +43,59 @@
         0x80, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
       ]
       owner_id: 1
-      owner_type: value_triple
+    - id: 7
+      key_type: uint
+      key_bytes: [
+        0x02,
+      ]
+      owner_id: 1
+      owner_type: conditional_endorsement_triple
+    - id: 8
+      key_type: uint
+      key_bytes: [
+        0x03,
+      ]
+      owner_id: 2
+      owner_type: conditional_endorsement_triple
+    - id: 9
+      key_type: uint
+      key_bytes: [
+        0x04,
+      ]
+      owner_id: 1
+      owner_type: stateful_environment
+    - id: 10
+      key_type: uint
+      key_bytes: [
+        0x05,
+      ]
+      owner_id: 1
+      owner_type: ces_record_addition
+    - id: 11
+      key_type: uint
+      key_bytes: [
+        0x06,
+      ]
+      owner_id: 1
+      owner_type: ces_record_selection
+    - id: 12
+      key_type: uint
+      key_bytes: [
+        0x07,
+      ]
+      owner_id: 2
+      owner_type: ces_record_addition
+    - id: 13
+      key_type: uint
+      key_bytes: [
+        0x08,
+      ]
+      owner_id: 2
+      owner_type: ces_record_selection
+    - id: 14
+      key_type: uint
+      key_bytes: [
+        0x09,
+      ]
+      owner_id: 1
+      owner_type: ces_condition

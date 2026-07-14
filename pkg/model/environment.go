@@ -14,6 +14,10 @@ import (
 	"github.com/veraison/corim/comid"
 )
 
+// environmentOwners is a list of SQL tables that have an environment_id field.
+// It is populated from init()'s inside source files for the corresponding models.
+var environmentOwners []string
+
 type Environment struct {
 	bun.BaseModel `bun:"table:environments,alias:env"`
 
@@ -295,8 +299,7 @@ func (o *Environment) DeleteIfOrphaned(ctx context.Context, db bun.IDB) error {
 		return errors.New("ID not set")
 	}
 
-	owners := []string{"key_triples", "value_triples"}
-	for _, table := range owners {
+	for _, table := range environmentOwners {
 		ownerIDs, err := o.getOwnerIDs(ctx, db, table)
 		if err != nil {
 			return fmt.Errorf("error getting enviroment owners from %q: %w", table, err)

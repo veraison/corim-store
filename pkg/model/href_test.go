@@ -24,6 +24,8 @@ func TestHref_model_methods(t *testing.T) {
 	assert.Equal(t, href.ID, href.DbID())
 	assert.Equal(t, "hrefs", href.TableName())
 	assert.True(t, href.IsTable())
+	assert.Equal(t, href.LocatorID, href.OwnerDbID())
+	assert.Equal(t, "locator", href.OwnerName())
 }
 
 func TestHerf_Delete(t *testing.T) {

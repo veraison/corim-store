@@ -132,6 +132,14 @@ func (o *RoleEntry) IsTable() bool {
 	return true
 }
 
+func (o *RoleEntry) OwnerDbID() int64 {
+	return o.EntityID
+}
+
+func (o *RoleEntry) OwnerName() string {
+	return "entity"
+}
+
 func (o *RoleEntry) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Ignore().Exec(ctx)
 	return err

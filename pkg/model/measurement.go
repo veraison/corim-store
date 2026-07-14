@@ -50,6 +50,14 @@ func (o *MeasurementValueEntry) DbID() int64 {
 	return o.ID
 }
 
+func (o *MeasurementValueEntry) OwnerDbID() int64 {
+	return o.MeasurementID
+}
+
+func (o *MeasurementValueEntry) OwnerName() string {
+	return "measurement"
+}
+
 func (o *MeasurementValueEntry) TableName() string {
 	return "measurement_value_entries"
 }
@@ -161,6 +169,14 @@ func SelectMeasurement(ctx context.Context, db bun.IDB, id int64) (*Measurement,
 
 func (o *Measurement) DbID() int64 {
 	return o.ID
+}
+
+func (o *Measurement) OwnerDbID() int64 {
+	return o.OwnerID
+}
+
+func (o *Measurement) OwnerName() string {
+	return o.OwnerType
 }
 
 func (o *Measurement) TableName() string {

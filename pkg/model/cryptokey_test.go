@@ -85,6 +85,8 @@ func TestCryptoKey_Select(t *testing.T) {
 	assert.Equal(t, ck.ID, ck.DbID())
 	assert.Equal(t, "cryptokeys", ck.TableName())
 	assert.True(t, ck.IsTable())
+	assert.Equal(t, ck.OwnerID, ck.OwnerDbID())
+	assert.Equal(t, ck.OwnerType, ck.OwnerName())
 }
 
 func TestCryptoKey_Delete(t *testing.T) {
@@ -97,6 +99,14 @@ func TestCryptoKey_Delete(t *testing.T) {
 	ck.ID = 1
 	err = ck.Delete(context.Background(), db)
 	assert.NoError(t, err)
+}
+
+func TestSelectCryptoKey_nok(t *testing.T) {
+	ctx := context.Background()
+	db := NewTestDB(t)
+
+	_, err := SelectCryptoKey(ctx, db, 1)
+	assert.ErrorContains(t, err, "no rows in result set")
 }
 
 type testCryptoKey [4]byte

@@ -15,8 +15,11 @@ import (
 	"github.com/veraison/corim-store/pkg/migrations"
 )
 
-//go:embed  fixtures/sample.yaml
-var sampleFixture []byte
+//go:embed  fixtures/sample-key-and-value.yaml
+var keyAndValueSampleFixture []byte
+
+//go:embed  fixtures/sample-conditional-and-domain.yaml
+var conditionalAndDomainSampleFixture []byte
 
 func NewTestDB(t *testing.T) *bun.DB {
 	testDB := dbpkg.NewEmptyTestDB(t)

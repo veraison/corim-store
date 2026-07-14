@@ -79,6 +79,14 @@ func (o *Locator) IsTable() bool {
 	return true
 }
 
+func (o *Locator) OwnerDbID() int64 {
+	return o.ManifestID
+}
+
+func (o *Locator) OwnerName() string {
+	return "manifest"
+}
+
 func (o *Locator) ToCoRIM() (corim.Locator, error) {
 	digests, err := DigestsToCoRIM(o.Thumbprint)
 	if err != nil {

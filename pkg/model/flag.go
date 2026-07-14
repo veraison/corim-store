@@ -157,6 +157,14 @@ func (o *Flag) DbID() int64 {
 	return o.ID
 }
 
+func (o *Flag) OwnerDbID() int64 {
+	return o.MeasurementID
+}
+
+func (o *Flag) OwnerName() string {
+	return "measurement"
+}
+
 func (o *Flag) TableName() string {
 	return "flags"
 }

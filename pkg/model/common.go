@@ -40,6 +40,24 @@ type Model interface {
 	Select(context.Context, bun.IDB) error
 }
 
+// OwnedModel is a Model that is owned by another Model.
+type OwnedModel interface {
+	Model
+
+	// OwnerDbID returns the unique database ID of the owner of this
+	// model.
+	OwnerDbID() int64
+
+	// OwnerName returns the name of the owner model. In case of Bun
+	// polymorphic ownership, this must match the values specified in the
+	// "polymorphic" part of the  field's tag (i.e. OwnerType). For
+	// non-polymorphic ownership, a constant value is returned. In all
+	// cases, the value typically correspeonds to the singular version of
+	// the owner's table name. For example, values owned by a ModuleTag
+	// (table name "module_tags") will return "module_tag".
+	OwnerName() string
+}
+
 // ParseSWIDTagID convets a swid.TagID into a string representation of its
 // value and a TagIDType indicting the value's type.
 func ParseSWIDTagID(tag swid.TagID) (TagIDType, string) {
@@ -59,8 +77,14 @@ func ParseSWIDTagID(tag swid.TagID) (TagIDType, string) {
 }
 
 var tableModels = []any{
+	(*ConditionalEndorsementTriple)(nil),
+	(*ConditionalEndorsementSeriesRecord)(nil),
+	(*ConditionalEndorsementSeriesTriple)(nil),
 	(*CryptoKey)(nil),
 	(*Digest)(nil),
+	(*DomainEntry)(nil),
+	(*DomainDependencyTriple)(nil),
+	(*DomainMembershipTriple)(nil),
 	(*Entity)(nil),
 	(*Environment)(nil),
 	(*ExtensionValue)(nil),
@@ -75,11 +99,16 @@ var tableModels = []any{
 	(*MeasurementValueEntry)(nil),
 	(*ModuleTag)(nil),
 	(*RoleEntry)(nil),
+	(*StatefulEnvironment)(nil),
 	(*ValueTriple)(nil),
 	(*Token)(nil),
 }
 
 var viewModels = []any{
+	(*ConditionalEndorsementTripleEntry)(nil),
+	(*ConditionalEndorsementSeriesTripleEntry)(nil),
+	(*DomainDependencyTripleEntry)(nil),
+	(*DomainMembershipTripleEntry)(nil),
 	(*KeyTripleEntry)(nil),
 	(*ValueTripleEntry)(nil),
 }

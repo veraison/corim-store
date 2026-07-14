@@ -92,6 +92,14 @@ func (o *LinkedTag) DbID() int64 {
 	return o.ID
 }
 
+func (o *LinkedTag) OwnerDbID() int64 {
+	return o.ModuleID
+}
+
+func (o *LinkedTag) OwnerName() string {
+	return "module_tag"
+}
+
 func (o *LinkedTag) TableName() string {
 	return "linked_tags"
 }

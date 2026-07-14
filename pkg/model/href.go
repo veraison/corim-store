@@ -43,6 +43,14 @@ func (o *Href) DbID() int64 {
 	return o.ID
 }
 
+func (o *Href) OwnerDbID() int64 {
+	return o.LocatorID
+}
+
+func (o *Href) OwnerName() string {
+	return "locator"
+}
+
 func (o *Href) TableName() string {
 	return "hrefs"
 }

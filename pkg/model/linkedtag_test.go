@@ -62,6 +62,8 @@ func TestLinkedTag_model_methods(t *testing.T) {
 	assert.Equal(t, lt.ID, lt.DbID())
 	assert.Equal(t, "linked_tags", lt.TableName())
 	assert.True(t, lt.IsTable())
+	assert.Equal(t, lt.ModuleID, lt.OwnerDbID())
+	assert.Equal(t, "module_tag", lt.OwnerName())
 }
 
 func TestLinkedTag_Delete(t *testing.T) {

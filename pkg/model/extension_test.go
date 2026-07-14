@@ -83,6 +83,8 @@ func TestExtensionValue_Select(t *testing.T) {
 	assert.Equal(t, ev.ID, ev.DbID())
 	assert.Equal(t, "extensions", ev.TableName())
 	assert.True(t, ev.IsTable())
+	assert.Equal(t, ev.OwnerID, ev.OwnerDbID())
+	assert.Equal(t, ev.OwnerType, ev.OwnerName())
 }
 
 func TestExtensionValue_Delete(t *testing.T) {
