@@ -4,12 +4,26 @@
       environment_id: 1
       type: reference
       is_active: true
-      module_id: 1
+      owner_type: module_tag
+      owner_id: 1
     - id: 2
       environment_id: 2
       type: endorsement
       is_active: false
-      module_id: 2
+      owner_type: module_tag
+      owner_id: 2
+    - id: 3
+      environment_id: 1
+      type: endorsement
+      is_active: false
+      owner_type: conditional_endorsement_triple
+      owner_id: 1
+    - id: 4
+      environment_id: 2
+      type: endorsement
+      is_active: false
+      owner_type: conditional_endorsement_triple
+      owner_id: 2
 - model: KeyTriple
   rows:
     - id: 1
@@ -22,3 +36,65 @@
       type: identity
       is_active: false
       module_id: 2
+- model: DomainDependencyTriple
+  rows:
+    - id: 1
+      environment_id: 6
+      is_active: true
+      module_id: 1
+    - id: 2
+      environment_id: 7
+      is_active: false
+      module_id: 2
+- model: DomainMembershipTriple
+  rows:
+    - id: 1
+      environment_id: 8
+      is_active: true
+      module_id: 1
+    - id: 2
+      environment_id: 9
+      is_active: false
+      module_id: 2
+- model: DomainEntry
+  rows:
+    - id: 1
+      environment_id: 8
+      owner_id: 1
+      owner_type: domain_dependency_triple
+    - id: 2
+      environment_id: 9
+      owner_id: 2
+      owner_type: domain_dependency_triple
+    - id: 3
+      environment_id: 6
+      owner_id: 1
+      owner_type: domain_membership_triple
+    - id: 4
+      environment_id: 7
+      owner_id: 2
+      owner_type: domain_membership_triple
+- model: ConditionalEndorsementTriple
+  rows:
+    - id: 1
+      is_active: true
+      module_id: 3
+    - id: 2
+      is_active: false
+      module_id: 3
+- model: ConditionalEndorsementSeriesRecord
+  rows:
+    - id: 1
+      triple_id: 1
+    - id: 2
+      triple_id: 2
+- model: ConditionalEndorsementSeriesTriple
+  rows:
+    - id: 1
+      is_active: true
+      environment_id: 1
+      module_id: 3
+    - id: 2
+      environment_id: 2
+      is_active: false
+      module_id: 3

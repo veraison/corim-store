@@ -19,14 +19,15 @@ import (
 func TestCoSERVService(t *testing.T) {
 	ctx := context.Background()
 	db := model.NewTestDBWithFixtures(t, map[string][]byte{
-		"cryptokeys.yaml":         cryptoKeysFixture,
-		"digests.yaml":            digestsFixture,
-		"manifests.yaml":          manifestsFixture,
-		"module_tags.yaml":        moduleTagsFixture,
-		"triples.yaml":            triplesFixture,
-		"environments.yaml":       environmentsFixture,
-		"measurements.yaml":       measurementsFixture,
-		"measurement_values.yaml": measurementValuesFixture,
+		"cryptokeys.yaml":            cryptoKeysFixture,
+		"digests.yaml":               digestsFixture,
+		"manifests.yaml":             manifestsFixture,
+		"module_tags.yaml":           moduleTagsFixture,
+		"triples.yaml":               triplesFixture,
+		"environments.yaml":          environmentsFixture,
+		"stateful_environments.yaml": statefulEnvironmentsFixture,
+		"measurements.yaml":          measurementsFixture,
+		"measurement_values.yaml":    measurementValuesFixture,
 	})
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -143,10 +144,7 @@ func TestCoSERVService(t *testing.T) {
 			ArtifactType: util.Ptr(coserv.ArtifactTypeTrustAnchors),
 			EnvironmentSelector: coserv.NewEnvironmentSelector().
 				AddClass(coserv.StatefulClass{
-					Class: comid.NewClassUUID(comid.UUID{
-						0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-						0x80, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-					}),
+					Class: comid.NewClassOID("0.1.2.3.4"),
 				}),
 			ResultType: util.Ptr(coserv.ResultTypeCollectedArtifacts),
 		},

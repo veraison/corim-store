@@ -472,6 +472,100 @@ func TestStore_QueryEnvironments(t *testing.T) {
 	)
 }
 
+func TestStore_QueryConditionalEndorsementTriples(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"cryptokeys.yaml":            cryptoKeysFixture,
+		"digests.yaml":               digestsFixture,
+		"environments.yaml":          environmentsFixture,
+		"manifests.yaml":             manifestsFixture,
+		"measurement_values.yaml":    measurementValuesFixture,
+		"measurements.yaml":          measurementsFixture,
+		"module_tags.yaml":           moduleTagsFixture,
+		"stateful_environments.yaml": statefulEnvironmentsFixture,
+		"triples.yaml":               triplesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+
+	triples, err := store.QueryConditionalEndorsementTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 2)
+	assert.Equal(t,
+		comid.MustHexDecode(t, "3031323334353637303132333435363730313233343536373031323334353637"),
+		triples[0].Conditions.Values[0].Environment.Class.ClassID.Bytes(),
+	)
+}
+
+func TestStore_QueryConditionalEndorsementSeriesTriples(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"cryptokeys.yaml":            cryptoKeysFixture,
+		"digests.yaml":               digestsFixture,
+		"environments.yaml":          environmentsFixture,
+		"manifests.yaml":             manifestsFixture,
+		"measurement_values.yaml":    measurementValuesFixture,
+		"measurements.yaml":          measurementsFixture,
+		"module_tags.yaml":           moduleTagsFixture,
+		"stateful_environments.yaml": statefulEnvironmentsFixture,
+		"triples.yaml":               triplesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+
+	triples, err := store.QueryConditionalEndorsementSeriesTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 2)
+	assert.Equal(t,
+		comid.MustHexDecode(t, "0001020304050607000102030405060700010203040506070001020304050607"),
+		triples[0].Condition.Environment.Class.ClassID.Bytes(),
+	)
+}
+
+func TestStore_QueryDomainDependencyTriples(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"environments.yaml": environmentsFixture,
+		"manifests.yaml":    manifestsFixture,
+		"module_tags.yaml":  moduleTagsFixture,
+		"triples.yaml":      triplesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+
+	triples, err := store.QueryDomainDependencyTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 2)
+	assert.Equal(t,
+		comid.MustHexDecode(t, "3031323334353637303132333435363730313233343536373031323334353637"),
+		triples[0].DomainID.Class.ClassID.Bytes(),
+	)
+}
+
+func TestStore_QueryDomainMembershipTriples(t *testing.T) {
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"environments.yaml": environmentsFixture,
+		"manifests.yaml":    manifestsFixture,
+		"module_tags.yaml":  moduleTagsFixture,
+		"triples.yaml":      triplesFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	store, err := OpenWithDB(context.Background(), db)
+	require.NoError(t, err)
+
+	triples, err := store.QueryDomainMembershipTriples(nil)
+	assert.NoError(t, err)
+	assert.Len(t, triples, 2)
+	assert.Equal(t,
+		comid.MustHexDecode(t, "5051525354555657505152535455565750515253545556575051525354555657"),
+		triples[0].DomainID.Class.ClassID.Bytes(),
+	)
+}
+
 func TestStore_set_active(t *testing.T) {
 	db := model.NewTestDBWithFixtures(t, map[string][]byte{
 		"manifests.yaml":   manifestsFixture,

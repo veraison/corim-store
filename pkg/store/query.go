@@ -281,6 +281,10 @@ func (o *EntityQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Entity, err
 			}).
 			Scan(ctx)
 
+		if len(selectedIDs) == 0 && err == nil {
+			err = ErrNoMatch
+		}
+
 		if err != nil {
 			o.restoreIDs()
 			return nil, fmt.Errorf("roles: %w", err)
@@ -953,6 +957,7 @@ func (o *EnvironmentQuery) UpdateFromModel(env *model.Environment) *EnvironmentQ
 func (o *EnvironmentQuery) UpdateFromCoRIM(corimEnv *comid.Environment) error {
 	env, err := model.NewEnvironmentFromCoRIM(corimEnv)
 	if err != nil {
+		// coverage:ignore
 		return err
 	}
 
@@ -1008,6 +1013,7 @@ func (o *EnvironmentQuery) IsEmpty() bool {
 	return len(o.classIDTypes) == 0 &&
 		len(o.classIDBytes) == 0 &&
 		len(o.classIDs) == 0 &&
+		len(o.classSubqueries) == 0 &&
 		len(o.vendors) == 0 &&
 		len(o.models) == 0 &&
 		len(o.layers) == 0 &&
@@ -1312,7 +1318,7 @@ func (o *TripleQuery[T, TT]) Environment(updater func(e *EnvironmentQuery)) *Tri
 
 func (o *TripleQuery[T, TT]) MeasurementGroup() *MeasurementQueryGroup {
 	if o.measurementGroup == nil {
-		o.measurementGroup = NewMeasurementQueryGroup()
+		o.measurementGroup = NewMeasurementQueryGroup("value_triple")
 	}
 
 	return o.measurementGroup
@@ -1405,16 +1411,9 @@ func (o *TripleQuery[T, TT]) UpdateSelectQuery(query *bun.SelectQuery, dialect s
 	o.ManifestCommonQuery.UpdateSelectQuery(query, dialect)
 	o.ModuleTagCommonQuery.UpdateSelectQuery(query, dialect)
 
-	addOrGroupWhereClause("triple_db_id", o.tripleDbIDs, false, query, dialect)
-	addOrGroupWhereClause("manifest_db_id", o.manifestDbIDs, false, query, dialect)
-	addOrGroupWhereClause("module_tag_db_id", o.moduleTagDbIDs, false, query, dialect)
 	addOrGroupWhereClause("environment_db_id", o.environmentIDs, false, query, dialect)
-
+	addOrGroupWhereClause("triple_db_id", o.tripleDbIDs, false, query, dialect)
 	addOrGroupWhereClause("triple_type", o.tripleTypes, false, query, dialect)
-
-	addOrGroupWhereClause("manifest_id_type", o.manifestIDTypes, false, query, dialect)
-	addOrGroupWhereClause("manifest_id", o.manifestIDValues, false, query, dialect)
-	updateQueryWithEntries(o.manifestIDs, query, dialect)
 
 	if o.isActive != nil {
 		query.Where("is_active = ?", *o.isActive)
@@ -1486,67 +1485,25 @@ func (o *TripleQuery[T, TT]) Run(ctx context.Context, db bun.IDB) ([]T, error) {
 	}
 
 	if !o.MeasurementGroup().IsEmpty() {
-		o.saveTripleIDs()
-
 		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
 			q.OwnerID(o.tripleDbIDs...)
 		})
 
-		measurementGroups, err := o.MeasurementGroup().RunGroup(ctx, db)
+		tripleIDs, err := o.MeasurementGroup().RunOwnerConjunction(ctx, db)
 
-		// reset so that it doesn't affect the IsEmpty() test if
-		// the query is repeated.
 		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
 			q.ownerIDs = nil
 		})
 
-		// normally groups are disjunctive, so failing to match a query
-		// is not a failure as long as some other query matches; here
-		// however, we're treating the group as a conjunction so any
-		// failed query is failure for the whole group
-		if err != nil || len(measurementGroups) != o.MeasurementGroup().Length() {
-			o.restoreTripleIDs()
+		if err != nil {
 			o.restoreEnvIDs()
-
-			if err == nil {
-				err = ErrNoMatch
-			}
+			o.restoreTripleIDs()
 
 			return nil, fmt.Errorf("measurements: %w", err)
 		}
 
-		// Want to treat the query group as a conjunction, i.e.
-		// we the set of owner (i. e. triple) IDs that appear in
-		// the results for all queries. To do that, we first compute
-		// the unique set of triple IDs for each result set, and then
-		// increment a counter for each ID in the set. Once we finish
-		// processing all groups, countMap will map a triple ID onto
-		// the number of result sets it appeared in; if this number matches
-		// the number of queries in the query group, that means the
-		// triple ID appears in the matches for every query in the
-		// group.
-
-		countMap := make(map[int64]int)
-		mMap := make(map[int64]*model.Measurement)
-		for _, group := range measurementGroups {
-
-			tripleIDs := make(map[int64]bool)
-			for _, measurement := range group {
-				tripleIDs[measurement.OwnerID] = true
-				mMap[measurement.ID] = measurement
-			}
-
-			for tripleID := range tripleIDs {
-				countMap[tripleID] += 1
-			}
-		}
-
-		o.tripleDbIDs = make([]int64, 0, len(mMap))
-		for _, m := range mMap {
-			if countMap[m.OwnerID] == o.MeasurementGroup().Length() {
-				o.tripleDbIDs = append(o.tripleDbIDs, m.OwnerID)
-			}
-		}
+		o.saveTripleIDs()
+		o.tripleDbIDs = tripleIDs
 	}
 
 	ret, err := runQuery(ctx, db, o)
@@ -1574,7 +1531,7 @@ func (o *TripleQuery[T, TT]) IsEmpty() bool {
 }
 
 func (o *TripleQuery[T, TT]) saveTripleIDs() {
-	if o.envSaved {
+	if o.tripleSaved {
 		return
 	}
 
@@ -1583,7 +1540,7 @@ func (o *TripleQuery[T, TT]) saveTripleIDs() {
 }
 
 func (o *TripleQuery[T, TT]) restoreTripleIDs() {
-	if !o.envSaved {
+	if !o.tripleSaved {
 		return
 	}
 
@@ -1593,6 +1550,7 @@ func (o *TripleQuery[T, TT]) restoreTripleIDs() {
 
 func (o *TripleQuery[T, TT]) saveEnvIDs() {
 	if o.envSaved {
+		// coverage:ignore
 		return
 	}
 
@@ -1602,6 +1560,1654 @@ func (o *TripleQuery[T, TT]) saveEnvIDs() {
 }
 
 func (o *TripleQuery[T, TT]) restoreEnvIDs() {
+	if !o.envSaved {
+		return
+	}
+
+	o.environmentIDs = o.savedEnvIDs
+	o.envSaved = false
+}
+
+type DomainEntryQuery struct {
+	modelQuery
+	ownedQuery
+
+	environmentQuery *EnvironmentQuery
+
+	environmentIDs []int64
+
+	savedEnvIDs []int64
+	envSaved    bool
+}
+
+func (o *DomainEntryQuery) ID(value ...int64) *DomainEntryQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *DomainEntryQuery) OwnerType(value ...string) *DomainEntryQuery {
+	o.ownedQuery.OwnerType(value...)
+	return o
+}
+
+func (o *DomainEntryQuery) OwnerID(value ...int64) *DomainEntryQuery {
+	o.ownedQuery.OwnerID(value...)
+	return o
+}
+
+func (o *DomainEntryQuery) Owner(typ string, id int64) *DomainEntryQuery {
+	o.ownedQuery.Owner(typ, id)
+	return o
+}
+
+func (o *DomainEntryQuery) OwnerFromModel(value ...*model.DomainEntry) *DomainEntryQuery {
+	for _, entry := range value {
+		o.Owner(entry.OwnerType, entry.OwnerID)
+	}
+	return o
+}
+
+func (o *DomainEntryQuery) EnvironmentSubquery() *EnvironmentQuery {
+	if o.environmentQuery == nil {
+		o.environmentQuery = NewEnvironmentQuery(false)
+	}
+
+	return o.environmentQuery
+}
+
+func (o *DomainEntryQuery) ExactEnvironment(value bool) *DomainEntryQuery {
+	o.EnvironmentSubquery().Exact = value
+	return o
+}
+
+func (o *DomainEntryQuery) Environment(updater func(e *EnvironmentQuery)) *DomainEntryQuery {
+	updater(o.EnvironmentSubquery())
+	return o
+}
+
+func (o *DomainEntryQuery) EnvironmentID(value ...int64) *DomainEntryQuery {
+	o.environmentIDs = append(o.environmentIDs, value...)
+	return o
+}
+
+func (o *DomainEntryQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	o.ownedQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("environment_id", o.environmentIDs, false, query, dialect)
+}
+
+func (o *DomainEntryQuery) Run(ctx context.Context, db bun.IDB) ([]*model.DomainEntry, error) {
+	if !o.EnvironmentSubquery().IsEmpty() {
+		savedQueryIDs := slices.Clone(o.EnvironmentSubquery().ids)
+		environments, err := o.EnvironmentSubquery().ID(o.environmentIDs...).Run(ctx, db)
+		o.EnvironmentSubquery().ids = savedQueryIDs
+		if err != nil {
+			return nil, fmt.Errorf("environment: %w", err)
+		}
+
+		o.saveEnvIDs()
+		o.environmentIDs = make([]int64, len(environments))
+		for i, env := range environments {
+			o.environmentIDs[i] = env.ID
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreIDs()
+	o.restoreEnvIDs()
+	return ret, err
+}
+
+func (o *DomainEntryQuery) IsEmpty() bool {
+	return len(o.environmentIDs) == 0 &&
+		o.modelQuery.IsEmpty() &&
+		o.ownedQuery.IsEmpty() &&
+		o.EnvironmentSubquery().IsEmpty()
+}
+
+func (o *DomainEntryQuery) saveEnvIDs() {
+	if o.envSaved {
+		// coverage:ignore
+		return
+	}
+
+	o.savedEnvIDs = o.environmentIDs
+	o.environmentIDs = slices.Clone(o.savedEnvIDs)
+	o.envSaved = true
+}
+
+func (o *DomainEntryQuery) restoreEnvIDs() {
+	if !o.envSaved {
+		return
+	}
+
+	o.environmentIDs = o.savedEnvIDs
+	o.envSaved = false
+}
+
+func NewDomainEntryQuery() *DomainEntryQuery {
+	return &DomainEntryQuery{}
+}
+
+type DomainDependencyTripleQuery = DomainTripleQuery[*model.DomainDependencyTripleEntry]
+
+func NewDomainDependencyTripleQuery() *DomainTripleQuery[*model.DomainDependencyTripleEntry] {
+	return NewDomainTripleQuery[*model.DomainDependencyTripleEntry]("domain_dependency_triple")
+}
+
+type DomainMembershipTripleQuery = DomainTripleQuery[*model.DomainMembershipTripleEntry]
+
+func NewDomainMembershipTripleQuery() *DomainTripleQuery[*model.DomainMembershipTripleEntry] {
+	return NewDomainTripleQuery[*model.DomainMembershipTripleEntry]("domain_membership_triple")
+}
+
+type DomainTripleQuery[T model.Model] struct {
+	ManifestCommonQuery
+	ModuleTagCommonQuery
+
+	isActive *bool
+
+	domainIDQuery *EnvironmentQuery
+	entryQuery    *DomainEntryQuery
+	entryOwner    string
+
+	tripleDbIDs            []int64
+	domainIDEnvironmentIDs []int64
+	entryIDs               []int64
+
+	savedTripleIDs      []int64
+	tripleSaved         bool
+	savedDomainIDEnvIDs []int64
+	domainIDEnvSaved    bool
+}
+
+func NewDomainTripleQuery[T model.Model](memberColumn string) *DomainTripleQuery[T] {
+	return &DomainTripleQuery[T]{entryOwner: memberColumn}
+}
+
+func (o *DomainTripleQuery[T]) ID(value ...int64) *DomainTripleQuery[T] {
+	o.TripleDbID(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) TripleDbID(value ...int64) *DomainTripleQuery[T] {
+	o.tripleDbIDs = append(o.tripleDbIDs, value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ManifestDbID(value ...int64) *DomainTripleQuery[T] {
+	o.manifestDbIDs = append(o.manifestDbIDs, value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ModuleTagDbID(value ...int64) *DomainTripleQuery[T] {
+	o.moduleTagDbIDs = append(o.moduleTagDbIDs, value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) IsActive(value bool) *DomainTripleQuery[T] {
+	o.isActive = &value
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ManifestIDType(value ...model.TagIDType) *DomainTripleQuery[T] {
+	o.manifestIDTypes = append(o.manifestIDTypes, value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ManifestIDValue(value ...string) *DomainTripleQuery[T] {
+	o.manifestIDValues = append(o.manifestIDValues, value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ManifestID(typ model.TagIDType, value string) *DomainTripleQuery[T] {
+	o.manifestIDs = append(o.manifestIDs, &manifestIDQueryEntry{typ, value})
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ModuleTagIDType(value ...model.TagIDType) *DomainTripleQuery[T] {
+	o.ModuleTagCommonQuery.ModuleTagIDType(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ModuleTagIDValue(value ...string) *DomainTripleQuery[T] {
+	o.ModuleTagCommonQuery.ModuleTagIDValue(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ModuleTagID(typ model.TagIDType, value string) *DomainTripleQuery[T] {
+	o.moduleTagIDs = append(o.moduleTagIDs, &moduleTagIDQueryEntry{typ, value})
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ModuleTagVersion(value ...uint) *DomainTripleQuery[T] {
+	o.ModuleTagCommonQuery.ModuleTagVersion(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) Language(value ...string) *DomainTripleQuery[T] {
+	o.ModuleTagCommonQuery.Language(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) Label(value ...string) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.Label(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ProfileType(value ...model.ProfileType) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ProfileType(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ProfileValue(value ...string) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ProfileValue(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) Profile(typ model.ProfileType, value string) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.Profile(typ, value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ProfileFromEAT(value ...*eat.Profile) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ProfileFromEAT(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) AddedBefore(value time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.AddedBefore(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) AddedAfter(value time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.AddedAfter(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) AddedBetween(lower, upper time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.AddedBetween(lower, upper)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ValidBefore(value time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ValidBefore(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ValidAfter(value time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ValidAfter(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ValidBetween(lower, upper time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ValidBetween(lower, upper)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) ValidOn(value time.Time) *DomainTripleQuery[T] {
+	o.ManifestCommonQuery.ValidOn(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) DomainIDSubquery() *EnvironmentQuery {
+	if o.domainIDQuery == nil {
+		o.domainIDQuery = NewEnvironmentQuery(false)
+	}
+
+	return o.domainIDQuery
+}
+
+func (o *DomainTripleQuery[T]) ExactDomainID(value bool) *DomainTripleQuery[T] {
+	o.DomainIDSubquery().Exact = value
+	return o
+}
+
+func (o *DomainTripleQuery[T]) DomainID(updater func(e *EnvironmentQuery)) *DomainTripleQuery[T] {
+	updater(o.DomainIDSubquery())
+	return o
+}
+
+func (o *DomainTripleQuery[T]) DomainIDEnvironmentID(value ...int64) *DomainTripleQuery[T] {
+	o.domainIDEnvironmentIDs = append(o.domainIDEnvironmentIDs, value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) EntrySubquery() *DomainEntryQuery {
+	if o.entryQuery == nil {
+		o.entryQuery = NewDomainEntryQuery()
+	}
+
+	return o.entryQuery
+}
+
+func (o *DomainTripleQuery[T]) EntryExactEnvironment(value bool) *DomainTripleQuery[T] {
+	o.EntrySubquery().ExactEnvironment(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) EntryEnvironment(updater func(e *EnvironmentQuery)) *DomainTripleQuery[T] {
+	o.EntrySubquery().Environment(updater)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) EntryEnvironmentID(value ...int64) *DomainTripleQuery[T] {
+	o.EntrySubquery().EnvironmentID(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) MemberExactEnvironment(value bool) *DomainTripleQuery[T] {
+	o.EntrySubquery().ExactEnvironment(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) MemberEnvironment(updater func(e *EnvironmentQuery)) *DomainTripleQuery[T] {
+	o.EntrySubquery().Environment(updater)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) MemberEnvironmentID(value ...int64) *DomainTripleQuery[T] {
+	o.EntrySubquery().EnvironmentID(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) TrusteeExactEnvironment(value bool) *DomainTripleQuery[T] {
+	o.EntrySubquery().ExactEnvironment(value)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) TrusteeEnvironment(updater func(e *EnvironmentQuery)) *DomainTripleQuery[T] {
+	o.EntrySubquery().Environment(updater)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) TrusteeEnvironmentID(value ...int64) *DomainTripleQuery[T] {
+	o.EntrySubquery().EnvironmentID(value...)
+	return o
+}
+
+func (o *DomainTripleQuery[T]) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.ManifestCommonQuery.UpdateSelectQuery(query, dialect)
+	o.ModuleTagCommonQuery.UpdateSelectQuery(query, dialect)
+
+	addOrGroupWhereClause("triple_db_id", o.tripleDbIDs, false, query, dialect)
+	addOrGroupWhereClause("manifest_db_id", o.manifestDbIDs, false, query, dialect)
+	addOrGroupWhereClause("module_tag_db_id", o.moduleTagDbIDs, false, query, dialect)
+	addOrGroupWhereClause("environment_db_id", o.domainIDEnvironmentIDs, false, query, dialect)
+
+	addOrGroupWhereClause("manifest_id_type", o.manifestIDTypes, false, query, dialect)
+	addOrGroupWhereClause("manifest_id", o.manifestIDValues, false, query, dialect)
+	updateQueryWithEntries(o.manifestIDs, query, dialect)
+
+	if o.isActive != nil {
+		query.Where("is_active = ?", *o.isActive)
+	}
+}
+
+func (o *DomainTripleQuery[T]) Run(ctx context.Context, db bun.IDB) ([]T, error) {
+	if !o.DomainIDSubquery().IsEmpty() {
+		savedQueryIDs := slices.Clone(o.DomainIDSubquery().ids)
+		environments, err := o.DomainIDSubquery().ID(o.domainIDEnvironmentIDs...).Run(ctx, db)
+		o.DomainIDSubquery().ids = savedQueryIDs
+		if err != nil {
+			return nil, fmt.Errorf("domain ID: %w", err)
+		}
+
+		o.saveDomainIDEnvIDs()
+		o.domainIDEnvironmentIDs = make([]int64, len(environments))
+		for i, env := range environments {
+			o.domainIDEnvironmentIDs[i] = env.ID
+		}
+	}
+
+	if !o.EntrySubquery().IsEmpty() {
+		savedQueryIDs := slices.Clone(o.EntrySubquery().ids)
+		entries, err := o.EntrySubquery().
+			OwnerType(o.entryOwner).
+			OwnerID(o.tripleDbIDs...).
+			ID(o.entryIDs...).
+			Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.EntrySubquery().ids = savedQueryIDs
+		o.EntrySubquery().ownerTypes = nil
+		o.EntrySubquery().ownerIDs = nil
+
+		if err != nil {
+			o.restoreDomainIDEnvIDs()
+			return nil, fmt.Errorf("entries: %w", err)
+		}
+
+		o.saveTripleIDs()
+		for _, entry := range entries {
+			o.tripleDbIDs = append(o.tripleDbIDs, entry.OwnerID)
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreTripleIDs()
+	o.restoreDomainIDEnvIDs()
+	return ret, err
+}
+
+func (o *DomainTripleQuery[T]) IsEmpty() bool {
+	return o.isActive == nil &&
+		len(o.tripleDbIDs) == 0 &&
+		len(o.manifestDbIDs) == 0 &&
+		len(o.moduleTagDbIDs) == 0 &&
+		len(o.domainIDEnvironmentIDs) == 0 &&
+		len(o.manifestIDTypes) == 0 &&
+		len(o.manifestIDValues) == 0 &&
+		len(o.manifestIDs) == 0 &&
+		o.ManifestCommonQuery.IsEmpty() &&
+		o.ModuleTagCommonQuery.IsEmpty() &&
+		o.DomainIDSubquery().IsEmpty() &&
+		o.EntrySubquery().IsEmpty()
+}
+
+func (o *DomainTripleQuery[T]) saveTripleIDs() {
+	if o.tripleSaved {
+		// coverage:ignore
+		return
+	}
+
+	o.savedTripleIDs = o.tripleDbIDs
+	o.tripleSaved = true
+}
+
+func (o *DomainTripleQuery[T]) restoreTripleIDs() {
+	if !o.tripleSaved {
+		return
+	}
+
+	o.tripleDbIDs = o.savedTripleIDs
+	o.tripleSaved = false
+}
+
+func (o *DomainTripleQuery[T]) saveDomainIDEnvIDs() {
+	if o.domainIDEnvSaved {
+		// coverage:ignore
+		return
+	}
+
+	o.savedDomainIDEnvIDs = o.domainIDEnvironmentIDs
+	o.domainIDEnvironmentIDs = slices.Clone(o.savedDomainIDEnvIDs)
+	o.domainIDEnvSaved = true
+}
+
+func (o *DomainTripleQuery[T]) restoreDomainIDEnvIDs() {
+	if !o.domainIDEnvSaved {
+		return
+	}
+
+	o.domainIDEnvironmentIDs = o.savedDomainIDEnvIDs
+	o.domainIDEnvSaved = false
+}
+
+type StatefulEnvironmentQuery struct {
+	modelQuery
+
+	environemntQuery *EnvironmentQuery
+	measurementGroup *MeasurementQueryGroup
+
+	environmentIDs []int64
+	tripleIDs      []int64
+
+	savedEnvIDs []int64
+	envSaved    bool
+}
+
+func NewStatefulEnvironmentQuery() *StatefulEnvironmentQuery {
+	return &StatefulEnvironmentQuery{}
+}
+
+func (o *StatefulEnvironmentQuery) ID(value ...int64) *StatefulEnvironmentQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) TripleID(value ...int64) *StatefulEnvironmentQuery {
+	o.tripleIDs = append(o.tripleIDs, value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) EnvironmentSubquery() *EnvironmentQuery {
+	if o.environemntQuery == nil {
+		o.environemntQuery = NewEnvironmentQuery(false)
+	}
+
+	return o.environemntQuery
+}
+
+func (o *StatefulEnvironmentQuery) EnvironmentID(value ...int64) *StatefulEnvironmentQuery {
+	o.environmentIDs = append(o.environmentIDs, value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) ExactEnvironment(value bool) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Exact = value
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) ClassIDType(value ...string) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().ClassIDType(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) ClassIDBytes(value ...[]byte) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().ClassIDBytes(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) ClassID(typ string, value []byte) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().ClassID(typ, value)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Class(updater ...func(*ClassSubquery)) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Class(updater...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Vendor(value ...string) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Vendor(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Model(value ...string) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Model(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Layer(value ...uint64) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Layer(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Index(value ...uint64) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Index(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) InstanceType(value ...string) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().InstanceType(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) InstanceBytes(value ...[]byte) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().InstanceBytes(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Instance(typ string, value []byte) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Instance(typ, value)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) GroupType(value ...string) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().GroupType(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) GroupBytes(value ...[]byte) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().GroupBytes(value...)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) Group(typ string, value []byte) *StatefulEnvironmentQuery {
+	o.EnvironmentSubquery().Group(typ, value)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) MeasurementGroup() *MeasurementQueryGroup {
+	if o.measurementGroup == nil {
+		o.measurementGroup = NewMeasurementQueryGroup("stateful_environment")
+	}
+
+	return o.measurementGroup
+}
+
+func (o *StatefulEnvironmentQuery) Measurement(updater func(e *MeasurementQuery)) *StatefulEnvironmentQuery {
+	mq := NewMeasurementQuery().OwnerType("stateful_environment")
+	updater(mq)
+	o.MeasurementGroup().Add(mq)
+	return o
+}
+
+func (o *StatefulEnvironmentQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("environment_id", o.environmentIDs, false, query, dialect)
+	addOrGroupWhereClause("triple_id", o.tripleIDs, false, query, dialect)
+}
+
+func (o *StatefulEnvironmentQuery) Run(ctx context.Context, db bun.IDB) ([]*model.StatefulEnvironment, error) {
+	if !o.EnvironmentSubquery().IsEmpty() {
+		savedQueryIDs := slices.Clone(o.EnvironmentSubquery().ids)
+		environments, err := o.EnvironmentSubquery().ID(o.environmentIDs...).Run(ctx, db)
+		o.EnvironmentSubquery().ids = savedQueryIDs
+		if err != nil {
+			return nil, fmt.Errorf("environment: %w", err)
+		}
+
+		o.saveEnvIDs()
+		o.environmentIDs = make([]int64, len(environments))
+		for i, env := range environments {
+			o.environmentIDs[i] = env.ID
+		}
+	}
+
+	if !o.MeasurementGroup().IsEmpty() {
+		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
+			q.OwnerID(o.ids...)
+		})
+
+		ids, err := o.MeasurementGroup().RunOwnerConjunction(ctx, db)
+
+		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
+			q.ownerIDs = nil
+		})
+
+		if err != nil {
+			o.restoreEnvIDs()
+
+			return nil, fmt.Errorf("measurements: %w", err)
+		}
+
+		o.modelQuery.saveIDs()
+		o.modelQuery.ids = ids
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreEnvIDs()
+	o.modelQuery.restoreIDs()
+	return ret, err
+}
+
+func (o *StatefulEnvironmentQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.environmentIDs) == 0 &&
+		len(o.tripleIDs) == 0 &&
+		o.EnvironmentSubquery().IsEmpty() &&
+		o.MeasurementGroup().IsEmpty()
+}
+
+func (o *StatefulEnvironmentQuery) saveEnvIDs() {
+	if o.envSaved {
+		// coverage:ignore
+		return
+	}
+
+	o.savedEnvIDs = o.environmentIDs
+	o.environmentIDs = slices.Clone(o.savedEnvIDs)
+	o.envSaved = true
+}
+
+func (o *StatefulEnvironmentQuery) restoreEnvIDs() {
+	if !o.envSaved {
+		return
+	}
+
+	o.environmentIDs = o.savedEnvIDs
+	o.envSaved = false
+}
+
+type EndorsementQuery struct {
+	modelQuery
+	ownedQuery
+
+	environmentIDs []int64
+
+	environmentQuery EnvironmentQuery
+	measurements     *MeasurementQueryGroup
+
+	savedEnvIDs []int64
+	envSaved    bool
+}
+
+func NewEndorsementQuery() *EndorsementQuery {
+	return &EndorsementQuery{}
+}
+
+func (o *EndorsementQuery) ID(value ...int64) *EndorsementQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+func (o *EndorsementQuery) OwnerType(value ...string) *EndorsementQuery {
+	o.ownedQuery.OwnerType(value...)
+	return o
+}
+
+func (o *EndorsementQuery) OwnerID(value ...int64) *EndorsementQuery {
+	o.ownedQuery.OwnerID(value...)
+	return o
+}
+
+func (o *EndorsementQuery) Owner(typ string, id int64) *EndorsementQuery {
+	o.ownedQuery.Owner(typ, id)
+	return o
+}
+
+func (o *EndorsementQuery) EnvironmentID(value ...int64) *EndorsementQuery {
+	o.environmentIDs = append(o.environmentIDs, value...)
+	return o
+}
+
+func (o *EndorsementQuery) Environment(updater func(*EnvironmentQuery)) *EndorsementQuery {
+	updater(&o.environmentQuery)
+	return o
+}
+
+func (o *EndorsementQuery) EnvironmentSubquery() *EnvironmentQuery {
+	return &o.environmentQuery
+}
+
+func (o *EndorsementQuery) Measurement(updater func(*MeasurementQuery)) *EndorsementQuery {
+	query := NewMeasurementQuery().OwnerType("value_triple")
+	updater(query)
+	o.MeasurementGroup().Add(query)
+	return o
+}
+
+func (o *EndorsementQuery) MeasurementGroup() *MeasurementQueryGroup {
+	if o.measurements == nil {
+		o.measurements = NewMeasurementQueryGroup("value_triple")
+	}
+
+	return o.measurements
+}
+
+func (o *EndorsementQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	o.ownedQuery.UpdateSelectQuery(query, dialect)
+
+	addOrGroupWhereClause("environment_id", o.environmentIDs, false, query, dialect)
+}
+
+func (o *EndorsementQuery) Run(ctx context.Context, db bun.IDB) ([]*model.ValueTriple, error) {
+	if !o.EnvironmentSubquery().IsEmpty() {
+		savedQueryIDs := slices.Clone(o.EnvironmentSubquery().ids)
+		environments, err := o.EnvironmentSubquery().ID(o.environmentIDs...).Run(ctx, db)
+		o.EnvironmentSubquery().ids = savedQueryIDs
+		if err != nil {
+			return nil, fmt.Errorf("environment: %w", err)
+		}
+
+		o.saveEnvIDs()
+		o.environmentIDs = make([]int64, len(environments))
+		for i, env := range environments {
+			o.environmentIDs[i] = env.ID
+		}
+	}
+
+	if !o.MeasurementGroup().IsEmpty() {
+
+		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
+			q.OwnerID(o.modelQuery.ids...)
+		})
+
+		ids, err := o.MeasurementGroup().RunOwnerConjunction(ctx, db)
+
+		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
+			q.ownedQuery.ownerIDs = nil
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("measurements: %w", err)
+		}
+
+		o.modelQuery.saveIDs()
+		o.modelQuery.ids = ids
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.modelQuery.restoreIDs()
+	o.restoreEnvIDs()
+	return ret, err
+}
+
+func (o *EndorsementQuery) IsEmpty() bool {
+	return len(o.environmentIDs) == 0 &&
+		o.modelQuery.IsEmpty() &&
+		o.ownedQuery.IsEmpty() &&
+		o.environmentQuery.IsEmpty() &&
+		o.MeasurementGroup().IsEmpty()
+}
+
+func (o *EndorsementQuery) saveEnvIDs() {
+	if o.envSaved {
+		// coverage:ignore
+		return
+	}
+
+	o.savedEnvIDs = o.environmentIDs
+	o.environmentIDs = slices.Clone(o.savedEnvIDs)
+	o.envSaved = true
+}
+
+func (o *EndorsementQuery) restoreEnvIDs() {
+	if !o.envSaved {
+		return
+	}
+
+	o.environmentIDs = o.savedEnvIDs
+	o.envSaved = false
+}
+
+type ConditionalEndorsementTripleQuery struct {
+	ManifestCommonQuery
+	ModuleTagCommonQuery
+
+	isActive *bool
+
+	tripleDbIDs []int64
+
+	conditions   *StatefulEnvironmentQueryGroup
+	endorsements *EndorsementQueryGroup
+
+	savedTripleIDs []int64
+	tripleSaved    bool
+}
+
+func NewConditionalEndorsementTripleQuery() *ConditionalEndorsementTripleQuery {
+	return &ConditionalEndorsementTripleQuery{}
+}
+
+func (o *ConditionalEndorsementTripleQuery) TripleDbID(value ...int64) *ConditionalEndorsementTripleQuery {
+	o.tripleDbIDs = append(o.tripleDbIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ManifestDbID(value ...int64) *ConditionalEndorsementTripleQuery {
+	o.manifestDbIDs = append(o.manifestDbIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ModuleTagDbID(value ...int64) *ConditionalEndorsementTripleQuery {
+	o.moduleTagDbIDs = append(o.moduleTagDbIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) IsActive(value bool) *ConditionalEndorsementTripleQuery {
+	o.isActive = &value
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ManifestIDType(
+	value ...model.TagIDType,
+) *ConditionalEndorsementTripleQuery {
+	o.manifestIDTypes = append(o.manifestIDTypes, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ManifestIDValue(value ...string) *ConditionalEndorsementTripleQuery {
+	o.manifestIDValues = append(o.manifestIDValues, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ManifestID(
+	typ model.TagIDType, value string,
+) *ConditionalEndorsementTripleQuery {
+	o.manifestIDs = append(o.manifestIDs, &manifestIDQueryEntry{typ, value})
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ModuleTagIDType(
+	value ...model.TagIDType,
+) *ConditionalEndorsementTripleQuery {
+	o.ModuleTagCommonQuery.ModuleTagIDType(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ModuleTagIDValue(
+	value ...string,
+) *ConditionalEndorsementTripleQuery {
+	o.ModuleTagCommonQuery.ModuleTagIDValue(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ModuleTagID(
+	typ model.TagIDType, value string,
+) *ConditionalEndorsementTripleQuery {
+	o.moduleTagIDs = append(o.moduleTagIDs, &moduleTagIDQueryEntry{typ, value})
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ModuleTagVersion(value ...uint) *ConditionalEndorsementTripleQuery {
+	o.ModuleTagCommonQuery.ModuleTagVersion(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) Language(value ...string) *ConditionalEndorsementTripleQuery {
+	o.ModuleTagCommonQuery.Language(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) Label(value ...string) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.Label(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ProfileType(
+	value ...model.ProfileType,
+) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ProfileType(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ProfileValue(value ...string) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ProfileValue(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) Profile(
+	typ model.ProfileType, value string,
+) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.Profile(typ, value)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ProfileFromEAT(
+	value ...*eat.Profile,
+) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ProfileFromEAT(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) AddedBefore(value time.Time) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.AddedBefore(value)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) AddedAfter(value time.Time) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.AddedAfter(value)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) AddedBetween(
+	lower, upper time.Time,
+) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.AddedBetween(lower, upper)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ValidBefore(value time.Time) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ValidBefore(value)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ValidAfter(value time.Time) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ValidAfter(value)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ValidBetween(
+	lower, upper time.Time,
+) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ValidBetween(lower, upper)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ValidOn(value time.Time) *ConditionalEndorsementTripleQuery {
+	o.ManifestCommonQuery.ValidOn(value)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) ConditionGroup() *StatefulEnvironmentQueryGroup {
+	if o.conditions == nil {
+		o.conditions = NewStatefulEnvironmentQueryGroup()
+	}
+
+	return o.conditions
+}
+
+func (o *ConditionalEndorsementTripleQuery) Condition(
+	updater func(*StatefulEnvironmentQuery),
+) *ConditionalEndorsementTripleQuery {
+	query := NewStatefulEnvironmentQuery()
+	updater(query)
+	o.ConditionGroup().Add(query)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) EndorsementGroup() *EndorsementQueryGroup {
+	if o.endorsements == nil {
+		o.endorsements = NewEndorsementQueryGroup()
+	}
+
+	return o.endorsements
+}
+
+func (o *ConditionalEndorsementTripleQuery) Endorsement(
+	updater func(*EndorsementQuery),
+) *ConditionalEndorsementTripleQuery {
+	query := NewEndorsementQuery().OwnerType("conditional_endorsement_triple")
+	updater(query)
+	o.EndorsementGroup().Add(query)
+	return o
+}
+
+func (o *ConditionalEndorsementTripleQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.ManifestCommonQuery.UpdateSelectQuery(query, dialect)
+	o.ModuleTagCommonQuery.UpdateSelectQuery(query, dialect)
+
+	addOrGroupWhereClause("triple_db_id", o.tripleDbIDs, false, query, dialect)
+
+	if o.isActive != nil {
+		query.Where("is_active = ?", *o.isActive)
+	}
+}
+
+func (o *ConditionalEndorsementTripleQuery) Run(
+	ctx context.Context,
+	db bun.IDB,
+) ([]*model.ConditionalEndorsementTripleEntry, error) {
+	if !o.ConditionGroup().IsEmpty() {
+		o.ConditionGroup().ForEach(func(q *StatefulEnvironmentQuery) {
+			q.TripleID(o.tripleDbIDs...)
+		})
+
+		tripleIDs, err := o.ConditionGroup().RunOwnerConjunction(ctx, db)
+
+		o.ConditionGroup().ForEach(func(q *StatefulEnvironmentQuery) {
+			q.tripleIDs = nil
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("conditions: %w", err)
+		}
+
+		o.saveTripleIDs()
+		o.tripleDbIDs = tripleIDs
+
+	}
+
+	if !o.EndorsementGroup().IsEmpty() {
+		o.EndorsementGroup().ForEach(func(q *EndorsementQuery) {
+			q.OwnerID(o.tripleDbIDs...)
+		})
+
+		tripleIDs, err := o.EndorsementGroup().RunOwnerConjunction(ctx, db)
+
+		o.EndorsementGroup().ForEach(func(q *EndorsementQuery) {
+			q.ownedQuery.ownerIDs = nil
+		})
+
+		if err != nil {
+			o.restoreTripleIDs()
+			return nil, fmt.Errorf("endorsements: %w", err)
+		}
+
+		o.saveTripleIDs()
+		o.tripleDbIDs = tripleIDs
+
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreTripleIDs()
+	return ret, err
+}
+
+func (o *ConditionalEndorsementTripleQuery) IsEmpty() bool {
+	return o.ManifestCommonQuery.IsEmpty() &&
+		o.ModuleTagCommonQuery.IsEmpty() &&
+		o.isActive == nil &&
+		o.ConditionGroup().IsEmpty() &&
+		o.EndorsementGroup().IsEmpty()
+}
+
+func (o *ConditionalEndorsementTripleQuery) saveTripleIDs() {
+	if o.tripleSaved {
+		return
+	}
+
+	o.savedTripleIDs = o.tripleDbIDs
+	o.tripleSaved = true
+}
+
+func (o *ConditionalEndorsementTripleQuery) restoreTripleIDs() {
+	if !o.tripleSaved {
+		return
+	}
+
+	o.tripleDbIDs = o.savedTripleIDs
+	o.tripleSaved = false
+}
+
+type ConditionalEndorsementSeriesRecordQuery struct {
+	modelQuery
+
+	tripleIDs []int64
+
+	selections *MeasurementQueryGroup
+	additions  *MeasurementQueryGroup
+}
+
+func NewConditionalEndorsementSeriesRecordQuery() *ConditionalEndorsementSeriesRecordQuery {
+	return &ConditionalEndorsementSeriesRecordQuery{}
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) ID(value ...int64) *ConditionalEndorsementSeriesRecordQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) TripleID(
+	value ...int64,
+) *ConditionalEndorsementSeriesRecordQuery {
+	o.tripleIDs = append(o.tripleIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) SelectionGroup() *MeasurementQueryGroup {
+	if o.selections == nil {
+		o.selections = NewMeasurementQueryGroup("ces_record_selection")
+	}
+
+	return o.selections
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) Selection(
+	updater func(*MeasurementQuery),
+) *ConditionalEndorsementSeriesRecordQuery {
+	query := NewMeasurementQuery()
+	updater(query)
+	o.SelectionGroup().Add(query)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) AdditionGroup() *MeasurementQueryGroup {
+	if o.additions == nil {
+		o.additions = NewMeasurementQueryGroup("ces_record_addition")
+	}
+
+	return o.additions
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) Addition(
+	updater func(*MeasurementQuery),
+) *ConditionalEndorsementSeriesRecordQuery {
+	query := NewMeasurementQuery()
+	updater(query)
+	o.AdditionGroup().Add(query)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) UpdateSelectQuery(
+	query *bun.SelectQuery,
+	dialect schema.Dialect,
+) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("triple_id", o.tripleIDs, false, query, dialect)
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) Run(
+	ctx context.Context,
+	db bun.IDB,
+) ([]*model.ConditionalEndorsementSeriesRecord, error) {
+	if !o.SelectionGroup().IsEmpty() {
+		o.SelectionGroup().ForEach(func(q *MeasurementQuery) {
+			q.OwnerID(o.ids...)
+		})
+
+		ids, err := o.SelectionGroup().RunOwnerConjunction(ctx, db)
+
+		o.SelectionGroup().ForEach(func(q *MeasurementQuery) {
+			q.ownedQuery.ownerIDs = nil
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("selection: %w", err)
+		}
+
+		o.modelQuery.saveIDs()
+		o.modelQuery.ids = ids
+
+	}
+
+	if !o.AdditionGroup().IsEmpty() {
+		o.AdditionGroup().ForEach(func(q *MeasurementQuery) {
+			q.OwnerID(o.ids...)
+		})
+
+		ids, err := o.AdditionGroup().RunOwnerConjunction(ctx, db)
+
+		o.AdditionGroup().ForEach(func(q *MeasurementQuery) {
+			q.ownedQuery.ownerIDs = nil
+		})
+
+		if err != nil {
+			o.modelQuery.restoreIDs()
+			return nil, fmt.Errorf("addition: %w", err)
+		}
+
+		o.modelQuery.saveIDs()
+		o.modelQuery.ids = ids
+
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.modelQuery.restoreIDs()
+	return ret, err
+}
+
+func (o *ConditionalEndorsementSeriesRecordQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.tripleIDs) == 0 &&
+		o.SelectionGroup().IsEmpty() &&
+		o.AdditionGroup().IsEmpty()
+}
+
+type ConditionalEndorsementSeriesTripleQuery struct {
+	ManifestCommonQuery
+	ModuleTagCommonQuery
+
+	isActive *bool
+
+	tripleDbIDs    []int64
+	environmentIDs []int64
+
+	environmentQuery *EnvironmentQuery
+	authByQuery      *CryptoKeyQuery
+	measurementGroup *MeasurementQueryGroup
+	records          *ConditionalEndorsementSeriesRecordQueryGroup
+
+	savedTripleIDs []int64
+	tripleSaved    bool
+	savedEnvIDs    []int64
+	envSaved       bool
+}
+
+func NewConditionalEndorsementSeriesTripleQuery() *ConditionalEndorsementSeriesTripleQuery {
+	return &ConditionalEndorsementSeriesTripleQuery{}
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) TripleDbID(
+	value ...int64,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.tripleDbIDs = append(o.tripleDbIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ManifestDbID(
+	value ...int64,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.manifestDbIDs = append(o.manifestDbIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ModuleTagDbID(
+	value ...int64,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.moduleTagDbIDs = append(o.moduleTagDbIDs, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) IsActive(
+	value bool,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.isActive = &value
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ManifestIDType(
+	value ...model.TagIDType,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.manifestIDTypes = append(o.manifestIDTypes, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ManifestIDValue(
+	value ...string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.manifestIDValues = append(o.manifestIDValues, value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ManifestID(
+	typ model.TagIDType, value string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.manifestIDs = append(o.manifestIDs, &manifestIDQueryEntry{typ, value})
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ModuleTagIDType(
+	value ...model.TagIDType,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ModuleTagCommonQuery.ModuleTagIDType(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ModuleTagIDValue(
+	value ...string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ModuleTagCommonQuery.ModuleTagIDValue(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ModuleTagID(
+	typ model.TagIDType, value string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.moduleTagIDs = append(o.moduleTagIDs, &moduleTagIDQueryEntry{typ, value})
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ModuleTagVersion(
+	value ...uint,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ModuleTagCommonQuery.ModuleTagVersion(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Language(
+	value ...string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ModuleTagCommonQuery.Language(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Label(
+	value ...string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.Label(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ProfileType(
+	value ...model.ProfileType,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ProfileType(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ProfileValue(
+	value ...string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ProfileValue(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Profile(
+	typ model.ProfileType, value string,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.Profile(typ, value)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ProfileFromEAT(
+	value ...*eat.Profile,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ProfileFromEAT(value...)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) AddedBefore(
+	value time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.AddedBefore(value)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) AddedAfter(
+	value time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.AddedAfter(value)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) AddedBetween(
+	lower, upper time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.AddedBetween(lower, upper)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ValidBefore(
+	value time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ValidBefore(value)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ValidAfter(
+	value time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ValidAfter(value)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ValidBetween(
+	lower, upper time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ValidBetween(lower, upper)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ValidOn(
+	value time.Time,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.ManifestCommonQuery.ValidOn(value)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) EnvironmentSubquery() *EnvironmentQuery {
+	if o.environmentQuery == nil {
+		o.environmentQuery = NewEnvironmentQuery(false)
+	}
+
+	return o.environmentQuery
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) ExactEnvironment(
+	value bool,
+) *ConditionalEndorsementSeriesTripleQuery {
+	o.EnvironmentSubquery().Exact = value
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Environment(
+	updater func(*EnvironmentQuery),
+) *ConditionalEndorsementSeriesTripleQuery {
+	updater(o.EnvironmentSubquery())
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) RecordGroup() *ConditionalEndorsementSeriesRecordQueryGroup {
+	if o.records == nil {
+		o.records = NewConditionalEndorsementSeriesRecordQueryGroup()
+	}
+
+	return o.records
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Record(
+	updater func(*ConditionalEndorsementSeriesRecordQuery),
+) *ConditionalEndorsementSeriesTripleQuery {
+	query := NewConditionalEndorsementSeriesRecordQuery()
+	updater(query)
+	o.RecordGroup().Add(query)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) MeasurementGroup() *MeasurementQueryGroup {
+	if o.measurementGroup == nil {
+		o.measurementGroup = NewMeasurementQueryGroup("ces_condition")
+	}
+
+	return o.measurementGroup
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Measurement(
+	updater func(e *MeasurementQuery),
+) *ConditionalEndorsementSeriesTripleQuery {
+	mq := NewMeasurementQuery().OwnerType("ces_condition")
+	updater(mq)
+	o.MeasurementGroup().Add(mq)
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) AuthorizedBySubquery() *CryptoKeyQuery {
+	if o.authByQuery == nil {
+		o.authByQuery = NewCryptoKeyQuery()
+	}
+
+	return o.authByQuery
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) AuthorizedBy(
+	updater func(e *CryptoKeyQuery),
+) *ConditionalEndorsementSeriesTripleQuery {
+	updater(o.AuthorizedBySubquery())
+	return o
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) UpdateSelectQuery(
+	query *bun.SelectQuery,
+	dialect schema.Dialect,
+) {
+	o.ManifestCommonQuery.UpdateSelectQuery(query, dialect)
+	o.ModuleTagCommonQuery.UpdateSelectQuery(query, dialect)
+
+	addOrGroupWhereClause("environment_db_id", o.environmentIDs, false, query, dialect)
+	addOrGroupWhereClause("triple_db_id", o.tripleDbIDs, false, query, dialect)
+
+	if o.isActive != nil {
+		query.Where("is_active = ?", *o.isActive)
+	}
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) Run(
+	ctx context.Context,
+	db bun.IDB,
+) ([]*model.ConditionalEndorsementSeriesTripleEntry, error) {
+	if !o.EnvironmentSubquery().IsEmpty() {
+		savedQueryIDs := slices.Clone(o.EnvironmentSubquery().ids)
+		environments, err := o.EnvironmentSubquery().ID(o.environmentIDs...).Run(ctx, db)
+		o.EnvironmentSubquery().ids = savedQueryIDs
+		if err != nil {
+			return nil, fmt.Errorf("condition environment: %w", err)
+		}
+
+		o.saveEnvIDs()
+		o.environmentIDs = make([]int64, len(environments))
+		for i, env := range environments {
+			o.environmentIDs[i] = env.ID
+		}
+	}
+
+	if !o.AuthorizedBySubquery().IsEmpty() {
+		o.saveTripleIDs()
+		cryptoKeys, err := o.AuthorizedBySubquery().
+			OwnerType("ces_condition").
+			OwnerID(o.tripleDbIDs...).
+			Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.AuthorizedBySubquery().ownerTypes = nil
+		o.AuthorizedBySubquery().ownerIDs = nil
+
+		if err != nil {
+			o.restoreEnvIDs()
+			o.restoreTripleIDs()
+
+			return nil, fmt.Errorf("condition auth by: %w", err)
+		}
+
+		o.tripleDbIDs = make([]int64, len(cryptoKeys))
+		for i, ck := range cryptoKeys {
+			o.tripleDbIDs[i] = ck.OwnerID
+		}
+	}
+
+	if !o.MeasurementGroup().IsEmpty() {
+		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
+			q.OwnerID(o.tripleDbIDs...)
+		})
+
+		tripleIDs, err := o.MeasurementGroup().RunOwnerConjunction(ctx, db)
+
+		o.MeasurementGroup().ForEach(func(q *MeasurementQuery) {
+			q.ownerIDs = nil
+		})
+
+		if err != nil {
+			o.restoreEnvIDs()
+			o.restoreTripleIDs()
+
+			return nil, fmt.Errorf("condition measurements: %w", err)
+		}
+
+		o.saveTripleIDs()
+		o.tripleDbIDs = tripleIDs
+	}
+
+	if !o.RecordGroup().IsEmpty() {
+		o.RecordGroup().ForEach(func(q *ConditionalEndorsementSeriesRecordQuery) {
+			q.TripleID(o.tripleDbIDs...)
+		})
+
+		tripleIDs, err := o.RecordGroup().RunOwnerConjunction(ctx, db)
+
+		o.RecordGroup().ForEach(func(q *ConditionalEndorsementSeriesRecordQuery) {
+			q.tripleIDs = nil
+		})
+
+		if err != nil {
+			o.restoreEnvIDs()
+			o.restoreTripleIDs()
+
+			return nil, fmt.Errorf("records: %w", err)
+		}
+
+		o.saveTripleIDs()
+		o.tripleDbIDs = tripleIDs
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreTripleIDs()
+	o.restoreEnvIDs()
+	return ret, err
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) IsEmpty() bool {
+	return o.ManifestCommonQuery.IsEmpty() &&
+		o.ModuleTagCommonQuery.IsEmpty() &&
+		o.isActive == nil &&
+		o.EnvironmentSubquery().IsEmpty() &&
+		o.MeasurementGroup().IsEmpty() &&
+		o.AuthorizedBySubquery().IsEmpty()
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) saveTripleIDs() {
+	if o.tripleSaved {
+		return
+	}
+
+	o.savedTripleIDs = o.tripleDbIDs
+	o.tripleSaved = true
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) restoreTripleIDs() {
+	if !o.tripleSaved {
+		return
+	}
+
+	o.tripleDbIDs = o.savedTripleIDs
+	o.tripleSaved = false
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) saveEnvIDs() {
+	if o.envSaved {
+		return
+	}
+
+	o.savedEnvIDs = o.environmentIDs
+	o.environmentIDs = slices.Clone(o.savedEnvIDs)
+	o.envSaved = true
+}
+
+func (o *ConditionalEndorsementSeriesTripleQuery) restoreEnvIDs() {
 	if !o.envSaved {
 		return
 	}

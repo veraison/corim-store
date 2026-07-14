@@ -20,6 +20,9 @@ func TestModuleTag_round_trip(t *testing.T) {
 		Name:  comid.MustNewEntityName("foo", "string"),
 		Roles: *comid.NewRoles().Add(comid.RoleCreator),
 	})
+	testSvn, err := comid.NewTaggedSVN(42)
+	require.NoError(t, err)
+
 	testCases := []struct {
 		title string
 		mt    comid.Comid
@@ -83,6 +86,84 @@ func TestModuleTag_round_trip(t *testing.T) {
 									comid.PKIXBase64CertType)),
 						},
 					},
+					DomainDependencies: &comid.DomainDependencyTriples{
+						{
+							DomainID: comid.Environment{
+								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+							},
+							Trustees: []comid.Environment{
+								{
+									Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+								},
+							},
+						},
+					},
+					DomainMemberships: &comid.DomainMembershipTriples{
+						{
+							DomainID: comid.Environment{
+								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+							},
+							Members: []comid.Environment{
+								{
+									Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+								},
+							},
+						},
+					},
+					CondEndorsements: comid.NewCondEndorseTriples().Add(&comid.CondEndorseTriple{
+						Conditions: *comid.NewStatefulEnvironments().Add(&comid.StatefulEnvironment{
+							Environment: comid.Environment{
+								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+							},
+							Measurements: *comid.NewMeasurements().
+								Add(&comid.Measurement{
+									Val: comid.Mval{
+										SVN: testSvn,
+									},
+								}),
+						}),
+						Endorsements: *comid.NewValueTriples().Add(&comid.ValueTriple{
+							Environment: comid.Environment{
+								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+							},
+							Measurements: *comid.NewMeasurements().
+								Add(&comid.Measurement{
+									Val: comid.Mval{
+										SVN: testSvn,
+									},
+								}),
+						}),
+					}),
+					CondEndorseSeries: comid.NewCondEndorseSeriesTriples().Add(&comid.CondEndorseSeriesTriple{
+						Condition: comid.CondEndorseSeriesCondition{
+							Environment: comid.Environment{
+								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
+							},
+							Measurements: *comid.NewMeasurements().
+								Add(&comid.Measurement{
+									Val: comid.Mval{
+										SVN: testSvn,
+									},
+								}),
+							AuthorizedBy: comid.NewCryptoKeys().Add(comid.MustNewCryptoKeyTaggedBytes(
+								[]byte{0x01, 0x02, 0x03},
+							)),
+						},
+						Series: *comid.NewCondEndorseSeriesRecords().Add(&comid.CondEndorseSeriesRecord{
+							Selection: *comid.NewMeasurements().
+								Add(&comid.Measurement{
+									Val: comid.Mval{
+										SVN: testSvn,
+									},
+								}),
+							Addition: *comid.NewMeasurements().
+								Add(&comid.Measurement{
+									Val: comid.Mval{
+										SVN: testSvn,
+									},
+								}),
+						}),
+					}),
 				},
 			},
 		},
@@ -345,4 +426,6 @@ func TestModuleTag_model_methods(t *testing.T) {
 	assert.Equal(t, val.ID, val.DbID())
 	assert.Equal(t, "module_tags", val.TableName())
 	assert.True(t, val.IsTable())
+	assert.Equal(t, val.ManifestID, val.OwnerDbID())
+	assert.Equal(t, "manifest", val.OwnerName())
 }

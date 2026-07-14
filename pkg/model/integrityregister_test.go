@@ -75,6 +75,9 @@ func TestIntegrityRegister_Select(t *testing.T) {
 	assert.Equal(t, reg.ID, reg.DbID())
 	assert.Equal(t, "integrity_registers", reg.TableName())
 	assert.True(t, reg.IsTable())
+	assert.Equal(t, reg.MeasurementID, reg.OwnerDbID())
+	assert.Equal(t, "measurement", reg.OwnerName())
+	assert.True(t, reg.IsTable())
 }
 
 func TestIntegrityRegister_Delete(t *testing.T) {

@@ -137,3 +137,12 @@ func TestFlag_Delete(t *testing.T) {
 	err = flag.Delete(context.Background(), db)
 	assert.NoError(t, err)
 }
+
+func TestFlag_model_methods(t *testing.T) {
+	flag := Flag{ID: 1}
+	assert.Equal(t, flag.ID, flag.DbID())
+	assert.Equal(t, "flags", flag.TableName())
+	assert.True(t, flag.IsTable())
+	assert.Equal(t, flag.MeasurementID, flag.OwnerDbID())
+	assert.Equal(t, "measurement", flag.OwnerName())
+}

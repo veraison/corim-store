@@ -84,6 +84,14 @@ func (o *Digest) DbID() int64 {
 	return o.ID
 }
 
+func (o *Digest) OwnerDbID() int64 {
+	return o.OwnerID
+}
+
+func (o *Digest) OwnerName() string {
+	return o.OwnerType
+}
+
 func (o *Digest) TableName() string {
 	return "digests"
 }

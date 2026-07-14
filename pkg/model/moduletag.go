@@ -25,8 +25,12 @@ type ModuleTag struct {
 
 	Entities []*Entity `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:module_tag"`
 
-	ValueTriples []*ValueTriple `bun:"rel:has-many,join:id=module_id"`
-	KeyTriples   []*KeyTriple   `bun:"rel:has-many,join:id=module_id"`
+	ValueTriples                        []*ValueTriple                        `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:module_tag"`
+	KeyTriples                          []*KeyTriple                          `bun:"rel:has-many,join:id=module_id"`
+	ConditionalEndorsementTriples       []*ConditionalEndorsementTriple       `bun:"rel:has-many,join:id=module_id"`
+	ConditionalEndorsementSeriesTriples []*ConditionalEndorsementSeriesTriple `bun:"rel:has-many,join:id=module_id"`
+	DomainDependencyTriples             []*DomainDependencyTriple             `bun:"rel:has-many,join:id=module_id"`
+	DomainMembershipTriples             []*DomainMembershipTriple             `bun:"rel:has-many,join:id=module_id"`
 
 	LinkedTags []*LinkedTag `bun:"rel:has-many,join:id=module_id"`
 
@@ -61,6 +65,14 @@ func (o *ModuleTag) DbID() int64 {
 	return o.ID
 }
 
+func (o *ModuleTag) OwnerDbID() int64 {
+	return o.ManifestID
+}
+
+func (o *ModuleTag) OwnerName() string {
+	return "manifest"
+}
+
 func (o *ModuleTag) TableName() string {
 	return "module_tags"
 }
@@ -72,8 +84,8 @@ func (o *ModuleTag) IsTable() bool {
 func (o *ModuleTag) FromCoRIM(origin *comid.Comid) error {
 	var err error
 
-	if origin.Triples.CondEndorseSeries != nil && len(origin.Triples.CondEndorseSeries.Values) != 0 {
-		return errors.New("conditional endorsement series are not supported") // TODO
+	if origin.Triples.CoswidTriples != nil && len(*origin.Triples.CoswidTriples) != 0 {
+		return errors.New("CoSWID triples not supported")
 	}
 
 	o.Language = origin.Language
@@ -111,6 +123,32 @@ func (o *ModuleTag) FromCoRIM(origin *comid.Comid) error {
 		return err
 	}
 	o.KeyTriples = append(o.KeyTriples, identTriples...)
+
+	condEndTriples, err := ConditionalEndorsementTriplesFromCoRIM(origin.Triples.CondEndorsements)
+	if err != nil {
+		return err
+	}
+	o.ConditionalEndorsementTriples = append(o.ConditionalEndorsementTriples, condEndTriples...)
+
+	condEndSeriesTriples, err := ConditionalEndorsementSeriesTriplesFromCoRIM(
+		origin.Triples.CondEndorseSeries)
+	if err != nil {
+		return err
+	}
+	o.ConditionalEndorsementSeriesTriples = append(o.ConditionalEndorsementSeriesTriples,
+		condEndSeriesTriples...)
+
+	domainDependTriples, err := DomainDependencyTriplesFromCoRIM(origin.Triples.DomainDependencies)
+	if err != nil {
+		return err
+	}
+	o.DomainDependencyTriples = domainDependTriples
+
+	domainMemberTriples, err := DomainMembershipTriplesFromCoRIM(origin.Triples.DomainMemberships)
+	if err != nil {
+		return err
+	}
+	o.DomainMembershipTriples = domainMemberTriples
 
 	o.Extensions, err = CoMIDExtensionsFromCoRIM(origin.Extensions)
 	if err != nil {
@@ -184,6 +222,27 @@ func (o *ModuleTag) ToCoRIM() (*comid.Comid, error) {
 		return nil, err
 	}
 
+	ret.Triples.CondEndorsements, err = ConditionalEndorsementTriplesToCoRIM(o.ConditionalEndorsementTriples)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Triples.CondEndorseSeries, err = ConditionalEndorsementSeriesTriplesToCoRIM(
+		o.ConditionalEndorsementSeriesTriples)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Triples.DomainDependencies, err = DomainDependencyTriplesToCoRIM(o.DomainDependencyTriples)
+	if err != nil {
+		return nil, err
+	}
+
+	ret.Triples.DomainMemberships, err = DomainMembershipTriplesToCoRIM(o.DomainMembershipTriples)
+	if err != nil {
+		return nil, err
+	}
+
 	ret.Extensions, err = CoMIDExtensionsToCoRIM(o.Extensions)
 	if err != nil {
 		return nil, err
@@ -205,6 +264,22 @@ func (o *ModuleTag) SetActive(value bool) {
 
 	for _, vt := range o.ValueTriples {
 		vt.IsActive = value
+	}
+
+	for _, cet := range o.ConditionalEndorsementTriples {
+		cet.IsActive = value
+	}
+
+	for _, cest := range o.ConditionalEndorsementSeriesTriples {
+		cest.IsActive = value
+	}
+
+	for _, dmt := range o.DomainDependencyTriples {
+		dmt.IsActive = value
+	}
+
+	for _, dmt := range o.DomainMembershipTriples {
+		dmt.IsActive = value
 	}
 }
 
@@ -238,7 +313,8 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 	}
 
 	for _, triple := range o.ValueTriples {
-		triple.ModuleID = o.ID
+		triple.OwnerID = o.ID
+		triple.OwnerType = "module_tag"
 
 		if err := triple.Insert(ctx, db); err != nil {
 			// coverage:ignore
@@ -252,6 +328,42 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		if err := triple.Insert(ctx, db); err != nil {
 			// coverage:ignore
 			return fmt.Errorf("error inserting key triple %+v: %w", triple, err)
+		}
+	}
+
+	for _, triple := range o.ConditionalEndorsementTriples {
+		triple.ModuleID = o.ID
+
+		if err := triple.Insert(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("error inserting conditional endorsement triple %+v: %w", triple, err)
+		}
+	}
+
+	for _, triple := range o.ConditionalEndorsementSeriesTriples {
+		triple.ModuleID = o.ID
+
+		if err := triple.Insert(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("error inserting conditional endorsement series triple %+v: %w", triple, err)
+		}
+	}
+
+	for _, triple := range o.DomainDependencyTriples {
+		triple.ModuleID = o.ID
+
+		if err := triple.Insert(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("error inserting domain dependency triple %+v: %w", triple, err)
+		}
+	}
+
+	for _, triple := range o.DomainMembershipTriples {
+		triple.ModuleID = o.ID
+
+		if err := triple.Insert(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("error inserting domain membership triple %+v: %w", triple, err)
 		}
 	}
 
@@ -289,6 +401,10 @@ func (o *ModuleTag) Select(ctx context.Context, db bun.IDB) error {
 		Relation("LinkedTags").
 		Relation("ValueTriples").
 		Relation("KeyTriples").
+		Relation("ConditionalEndorsementTriples").
+		Relation("ConditionalEndorsementSeriesTriples").
+		Relation("DomainDependencyTriples").
+		Relation("DomainMembershipTriples").
 		Relation("Extensions").
 		Relation("TriplesExtensions").
 		Where("mt.id = ?", o.ID).
@@ -316,6 +432,34 @@ func (o *ModuleTag) Select(ctx context.Context, db bun.IDB) error {
 		if err := triple.Select(ctx, db); err != nil {
 			// coverage:ignore
 			return fmt.Errorf("key triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.ConditionalEndorsementTriples {
+		if err := triple.Select(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("conditional endorsement triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.ConditionalEndorsementSeriesTriples {
+		if err := triple.Select(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("conditional endorsement series triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.DomainDependencyTriples {
+		if err := triple.Select(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("domain dependency triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.DomainMembershipTriples {
+		if err := triple.Select(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("domain membership triple at index %d: %w", i, err)
 		}
 	}
 
@@ -355,6 +499,34 @@ func (o *ModuleTag) Delete(ctx context.Context, db bun.IDB) error { // nolint:du
 		}
 	}
 
+	for i, triple := range o.ConditionalEndorsementTriples {
+		if err := triple.Delete(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("conditional endorsement triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.ConditionalEndorsementSeriesTriples {
+		if err := triple.Delete(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("conditional endorsement series triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.DomainDependencyTriples {
+		if err := triple.Delete(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("domain dependency triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, triple := range o.DomainMembershipTriples {
+		if err := triple.Delete(ctx, db); err != nil {
+			// coverage:ignore
+			return fmt.Errorf("domain membership triple at index %d: %w", i, err)
+		}
+	}
+
 	for i, extension := range o.Extensions {
 		if err := extension.Delete(ctx, db); err != nil {
 			// coverage:ignore
@@ -383,7 +555,9 @@ func (o *ModuleTag) Validate() error {
 		return fmt.Errorf("unsupported tag ID type: %s", o.TagIDType)
 	}
 
-	if len(o.ValueTriples) == 0 && len(o.KeyTriples) == 0 {
+	if len(o.ValueTriples) == 0 && len(o.KeyTriples) == 0 &&
+		len(o.DomainDependencyTriples) == 0 && len(o.DomainMembershipTriples) == 0 &&
+		len(o.ConditionalEndorsementTriples) == 0 && len(o.ConditionalEndorsementSeriesTriples) == 0 {
 		return errors.New("no triples specified")
 	}
 
@@ -402,6 +576,30 @@ func (o *ModuleTag) Validate() error {
 	for i, keyTriple := range o.KeyTriples {
 		if err := keyTriple.Validate(); err != nil {
 			return fmt.Errorf("key triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, condEndorseTriple := range o.ConditionalEndorsementTriples {
+		if err := condEndorseTriple.Validate(); err != nil {
+			return fmt.Errorf("conditional endorsement triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, condEndorseSeriesTriple := range o.ConditionalEndorsementSeriesTriples {
+		if err := condEndorseSeriesTriple.Validate(); err != nil {
+			return fmt.Errorf("conditional endorsement series triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, domainDependTriple := range o.DomainDependencyTriples {
+		if err := domainDependTriple.Validate(); err != nil {
+			return fmt.Errorf("domain dependency triple at index %d: %w", i, err)
+		}
+	}
+
+	for i, domainMemberTriple := range o.DomainMembershipTriples {
+		if err := domainMemberTriple.Validate(); err != nil {
+			return fmt.Errorf("domain membership triple at index %d: %w", i, err)
 		}
 	}
 

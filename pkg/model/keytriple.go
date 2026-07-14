@@ -104,6 +104,14 @@ func (o *KeyTriple) DbID() int64 {
 	return o.ID
 }
 
+func (o *KeyTriple) OwnerDbID() int64 {
+	return o.ModuleID
+}
+
+func (o *KeyTriple) OwnerName() string {
+	return "module_tag"
+}
+
 func (o *KeyTriple) TableName() string {
 	return "key_triples"
 }
@@ -304,4 +312,8 @@ func (o *KeyTriple) TripleType() string {
 
 func (o *KeyTriple) DatabaseID() int64 {
 	return o.ID
+}
+
+func init() {
+	environmentOwners = append(environmentOwners, "key_triples")
 }

@@ -235,6 +235,14 @@ func (o *ExtensionValue) IsTable() bool {
 	return true
 }
 
+func (o *ExtensionValue) OwnerDbID() int64 {
+	return o.OwnerID
+}
+
+func (o *ExtensionValue) OwnerName() string {
+	return o.OwnerType
+}
+
 func (o *ExtensionValue) Insert(ctx context.Context, db bun.IDB) error {
 	_, err := db.NewInsert().Model(o).Exec(ctx)
 	return err

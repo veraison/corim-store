@@ -679,6 +679,8 @@ func TestMeasurement_model_methods(t *testing.T) {
 	assert.Equal(t, val.ID, val.DbID())
 	assert.Equal(t, "measurements", val.TableName())
 	assert.True(t, val.IsTable())
+	assert.Equal(t, val.OwnerID, val.OwnerDbID())
+	assert.Equal(t, val.OwnerType, val.OwnerName())
 }
 
 func TestSelectMeasurement_bad(t *testing.T) {

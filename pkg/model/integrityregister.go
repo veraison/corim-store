@@ -102,6 +102,14 @@ func (o *IntegrityRegister) DbID() int64 {
 	return o.ID
 }
 
+func (o *IntegrityRegister) OwnerDbID() int64 {
+	return o.MeasurementID
+}
+
+func (o *IntegrityRegister) OwnerName() string {
+	return "measurement"
+}
+
 func (o *IntegrityRegister) TableName() string {
 	return "integrity_registers"
 }

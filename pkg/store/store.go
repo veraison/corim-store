@@ -720,7 +720,7 @@ func (o *Store) QueryKeyTriples(query Query[*model.KeyTripleEntry]) ([]*comid.Ke
 	for i, model := range models {
 		triple, err := model.ToCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("value truple with ID %d: %w", model.ID, err)
+			return nil, fmt.Errorf("key triple with ID %d: %w", model.ID, err)
 		}
 
 		ret[i] = triple
@@ -776,7 +776,272 @@ func (o *Store) QueryValueTriples(query Query[*model.ValueTripleEntry]) ([]*comi
 	for i, model := range models {
 		triple, err := model.ToCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("value truple with ID %d: %w", model.ID, err)
+			return nil, fmt.Errorf("value triple with ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryConditionalEndorsementTripleEntries returns a
+// []*model.ConditionalEndorsementTripleEntry with entries matching the
+// provided query. If the query is nil or is empty, all
+// ConditionalEndorsementTriple's in the store will be returned.
+func (o *Store) QueryConditionalEndorsementTripleEntries(
+	query Query[*model.ConditionalEndorsementTripleEntry],
+) ([]*model.ConditionalEndorsementTripleEntry, error) {
+	if query == nil {
+		query = NewConditionalEndorsementTripleQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryConditionalEndorsementTripleModels returns a
+// []*model.ConditionalEndorsementTriple containing triples matching the
+// provided query. If the query is nil or is empty, all
+// ConditionalEndorsementTriple's in the store will be returned. Note: this
+// will run additional queries to fully populate matching triples. For queries
+// expecting large results, it is recommended to, where possible, use
+// QueryConditionalEndorsementTripleEntries instead.
+func (o *Store) QueryConditionalEndorsementTripleModels(
+	query Query[*model.ConditionalEndorsementTripleEntry],
+) ([]*model.ConditionalEndorsementTriple, error) {
+	entries, err := o.QueryConditionalEndorsementTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.ConditionalEndorsementTriple, len(entries))
+	for i, entry := range entries {
+		triple, err := entry.ToTriple(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("conditional endorsement triple ID %d: %w",
+				entry.TripleDbID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryConditionalEndorsementTriples returns a []*comid.CondEndorseTriple with
+// triples matching provided query.
+func (o *Store) QueryConditionalEndorsementTriples(
+	query Query[*model.ConditionalEndorsementTripleEntry],
+) ([]*comid.CondEndorseTriple, error) {
+	models, err := o.QueryConditionalEndorsementTripleModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.CondEndorseTriple, len(models))
+	for i, model := range models {
+		triple, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("conditional endorsement triple with ID %d: %w", model.ID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryConditionalEndorsementSeriesTripleEntries returns a
+// []*model.ConditionalEndorsementSeriesTripleEntry with entries matching the
+// provided query. If the query is nil or is empty, all
+// ConditionalEndorsementSeriesTriple's in the store will be returned.
+func (o *Store) QueryConditionalEndorsementSeriesTripleEntries(
+	query Query[*model.ConditionalEndorsementSeriesTripleEntry],
+) ([]*model.ConditionalEndorsementSeriesTripleEntry, error) {
+	if query == nil {
+		query = NewConditionalEndorsementSeriesTripleQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryConditionalEndorsementSeriesTripleModels returns a
+// []*model.ConditionalEndorsementSeriesTriple containing triples matching the
+// provided query. If the query is nil or is empty, all
+// ConditionalEndorsementSeriesTriple's in the store will be returned. Note: this
+// will run additional queries to fully populate matching triples. For queries
+// expecting large results, it is recommended to, where possible, use
+// QueryConditionalEndorsementSeriesTripleEntries instead.
+func (o *Store) QueryConditionalEndorsementSeriesTripleModels(
+	query Query[*model.ConditionalEndorsementSeriesTripleEntry],
+) ([]*model.ConditionalEndorsementSeriesTriple, error) {
+	entries, err := o.QueryConditionalEndorsementSeriesTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.ConditionalEndorsementSeriesTriple, len(entries))
+	for i, entry := range entries {
+		triple, err := entry.ToTriple(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("conditional endorsement series triple ID %d: %w",
+				entry.TripleDbID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryConditionalEndorsementSeriesTriples returns a
+// []*comid.CondEndorseSeriesTriple with triples matching provided query.
+func (o *Store) QueryConditionalEndorsementSeriesTriples(
+	query Query[*model.ConditionalEndorsementSeriesTripleEntry],
+) ([]*comid.CondEndorseSeriesTriple, error) {
+	models, err := o.QueryConditionalEndorsementSeriesTripleModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.CondEndorseSeriesTriple, len(models))
+	for i, model := range models {
+		triple, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("conditional endorsement series triple with ID %d: %w",
+				model.ID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryDomainDependencyTripleEntries returns a
+// []*model.DomainDependencyTripleEntry with entries matching the provided
+// query. If the query is nil or is empty, all DomainDependencyTripleEntry's in
+// the store will be returned.
+func (o *Store) QueryDomainDependencyTripleEntries(
+	query Query[*model.DomainDependencyTripleEntry],
+) ([]*model.DomainDependencyTripleEntry, error) {
+	if query == nil {
+		query = NewDomainDependencyTripleQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryDomainDependencyTripleModels returns a []*model.DomainDependencyTriple
+// containing triples matching the provided query. If the query is nil or is
+// empty, all DomainDependencyTriple's in the store will be returned. Note:
+// this will run additional queries to fully populate matching triples. For
+// queries expecting large results, it is recommended to, where possible, use
+// QueryDomainDependencyTripleEntries instead.
+func (o *Store) QueryDomainDependencyTripleModels(
+	query Query[*model.DomainDependencyTripleEntry],
+) ([]*model.DomainDependencyTriple, error) {
+	entries, err := o.QueryDomainDependencyTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.DomainDependencyTriple, len(entries))
+	for i, entry := range entries {
+		triple, err := entry.ToTriple(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("domain dependency triple ID %d: %w",
+				entry.TripleDbID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryDomainDependencyTriples returns a []*comid.DomainDependencyTriples with
+// triples matching provided query.
+func (o *Store) QueryDomainDependencyTriples(
+	query Query[*model.DomainDependencyTripleEntry],
+) ([]*comid.DomainDependencyTriple, error) {
+	models, err := o.QueryDomainDependencyTripleModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.DomainDependencyTriple, len(models))
+	for i, model := range models {
+		triple, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("domain dependency triple with ID %d: %w",
+				model.ID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryDomainMembershipTripleEntries returns a
+// []*model.DomainMembershipTripleEntry with entries matching the provided
+// query. If the query is nil or is empty, all DomainMembershipTripleEntry's in
+// the store will be returned.
+func (o *Store) QueryDomainMembershipTripleEntries(
+	query Query[*model.DomainMembershipTripleEntry],
+) ([]*model.DomainMembershipTripleEntry, error) {
+	if query == nil {
+		query = NewDomainMembershipTripleQuery()
+	}
+
+	return query.Run(o.Ctx, o.DB)
+}
+
+// QueryDomainMembershipTripleModels returns a []*model.DomainMembershipTriple
+// containing triples matching the provided query. If the query is nil or is
+// empty, all DomainMembershipTriple's in the store will be returned. Note:
+// this will run additional queries to fully populate matching triples. For
+// queries expecting large results, it is recommended to, where possible, use
+// QueryDomainMembershipTripleEntries instead.
+func (o *Store) QueryDomainMembershipTripleModels(
+	query Query[*model.DomainMembershipTripleEntry],
+) ([]*model.DomainMembershipTriple, error) {
+	entries, err := o.QueryDomainMembershipTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*model.DomainMembershipTriple, len(entries))
+	for i, entry := range entries {
+		triple, err := entry.ToTriple(o.Ctx, o.DB)
+		if err != nil {
+			return nil, fmt.Errorf("domain membership triple ID %d: %w",
+				entry.TripleDbID, err)
+		}
+
+		ret[i] = triple
+	}
+
+	return ret, nil
+}
+
+// QueryDomainMembershipTriples returns a []*comid.DomainMembershipTriples with
+// triples matching provided query.
+func (o *Store) QueryDomainMembershipTriples(
+	query Query[*model.DomainMembershipTripleEntry],
+) ([]*comid.DomainMembershipTriple, error) {
+	models, err := o.QueryDomainMembershipTripleModels(query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*comid.DomainMembershipTriple, len(models))
+	for i, model := range models {
+		triple, err := model.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("domain membership triple with ID %d: %w",
+				model.ID, err)
 		}
 
 		ret[i] = triple
@@ -861,6 +1126,138 @@ func (o *Store) SetValueTriplesActive(
 
 	_, err = o.DB.NewUpdate().
 		Table("value_triples").
+		Set("is_active = ?", value).
+		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+			for _, entry := range entries {
+				q.WhereOr("id = ?", entry.TripleDbID)
+			}
+
+			return q
+		}).
+		Exec(o.Ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+// SetConditionalEndorsementTriplesActive sets the active status of conditional
+// endorsement triples matching the specified query to the specified value. On
+// success a slice of entries corresponding to the updated triples is returned.
+// The IsActive field of these entries is set to their old value prior to the
+// update.
+func (o *Store) SetConditionalEndorsementTriplesActive(
+	query Query[*model.ConditionalEndorsementTripleEntry],
+	value bool,
+) ([]*model.ConditionalEndorsementTripleEntry, error) {
+	entries, err := o.QueryConditionalEndorsementTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.DB.NewUpdate().
+		Table("conditional_endorsement_triples").
+		Set("is_active = ?", value).
+		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+			for _, entry := range entries {
+				q.WhereOr("id = ?", entry.TripleDbID)
+			}
+
+			return q
+		}).
+		Exec(o.Ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+// SetConditionalEndorsementSeriesTriplesActive sets the active status of
+// conditional endorsement series triples matching the specified query to the
+// specified value. On success a slice of entries corresponding to the updated
+// triples is returned. The IsActive field of these entries is set to their old
+// value prior to the update.
+func (o *Store) SetConditionalEndorsementSeriesTriplesActive(
+	query Query[*model.ConditionalEndorsementSeriesTripleEntry],
+	value bool,
+) ([]*model.ConditionalEndorsementSeriesTripleEntry, error) {
+	entries, err := o.QueryConditionalEndorsementSeriesTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.DB.NewUpdate().
+		Table("conditional_endorsement_series_triples").
+		Set("is_active = ?", value).
+		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+			for _, entry := range entries {
+				q.WhereOr("id = ?", entry.TripleDbID)
+			}
+
+			return q
+		}).
+		Exec(o.Ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+// SetDomainDependencyTriplesActive sets the active status of domain dependency
+// triples matching the specified query to the specified value. On success a
+// slice of entries corresponding to the updated triples is returned. The
+// IsActive field of these entries is set to their old value prior to the
+// update.
+func (o *Store) SetDomainDependencyTriplesActive(
+	query Query[*model.DomainDependencyTripleEntry],
+	value bool,
+) ([]*model.DomainDependencyTripleEntry, error) {
+	entries, err := o.QueryDomainDependencyTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.DB.NewUpdate().
+		Table("domain_dependency_triples").
+		Set("is_active = ?", value).
+		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+			for _, entry := range entries {
+				q.WhereOr("id = ?", entry.TripleDbID)
+			}
+
+			return q
+		}).
+		Exec(o.Ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+// SetDomainMembershipTriplesActive sets the active status of domain membership
+// triples matching the specified query to the specified value. On success a
+// slice of entries corresponding to the updated triples is returned. The
+// IsActive field of these entries is set to their old value prior to the
+// update.
+func (o *Store) SetDomainMembershipTriplesActive(
+	query Query[*model.DomainMembershipTripleEntry],
+	value bool,
+) ([]*model.DomainMembershipTripleEntry, error) {
+	entries, err := o.QueryDomainMembershipTripleEntries(query)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = o.DB.NewUpdate().
+		Table("domain_membership_triples").
 		Set("is_active = ?", value).
 		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
 			for _, entry := range entries {

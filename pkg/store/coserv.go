@@ -133,15 +133,33 @@ func (o *CoSERVService) runEnvironmentQuery(
 			return nil, nil, err
 		}
 
+		condQueryGroup, err := ConditionalEndorsementTripleQueryGroupFromCoSERV(query)
+		if err != nil && !errors.Is(err, ErrNoMatch) {
+			return nil, nil, err
+		}
+
 		if profile != nil {
 			queryGroup.ForEach(func(v *ValueTripleQuery) {
+				v.ProfileFromEAT(profile)
+			})
+
+			condQueryGroup.ForEach(func(v *ConditionalEndorsementTripleQuery) {
 				v.ProfileFromEAT(profile)
 			})
 		}
 
 		tripleEntries, err := o.Store.QueryValueTripleEntries(queryGroup)
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrNoMatch) {
 			return nil, nil, err
+		}
+
+		condTripleEntries, err := o.Store.QueryConditionalEndorsementTripleEntries(condQueryGroup)
+		if err != nil && !errors.Is(err, ErrNoMatch) {
+			return nil, nil, err
+		}
+
+		if len(tripleEntries) == 0 && len(condTripleEntries) == 0 {
+			return nil, nil, ErrNoMatch
 		}
 
 		triples := make([]*comid.ValueTriple, len(tripleEntries))
@@ -165,6 +183,32 @@ func (o *CoSERVService) runEnvironmentQuery(
 			result.AddEndorsedValues(coserv.EndValQuad{
 				Authorities: comid.NewCryptoKeys().Add(o.FallbackAuthority),
 				EVTriple:    triple,
+			})
+		}
+
+		condTriples := make([]*comid.CondEndorseTriple, len(condTripleEntries))
+		for i, entry := range condTripleEntries {
+			updateExpiry(&expiry, entry.NotAfter)
+
+			model, err := entry.ToTriple(o.Store.Ctx, o.Store.DB)
+			if err != nil {
+				return nil, nil, fmt.Errorf("conditional endorsement triple with ID %d: %w",
+					entry.TripleDbID, err)
+			}
+
+			triple, err := model.ToCoRIM()
+			if err != nil {
+				return nil, nil, fmt.Errorf("conditional endorsement triple with ID %d: %w",
+					entry.TripleDbID, err)
+			}
+
+			condTriples[i] = triple
+		}
+
+		for _, triple := range condTriples {
+			result.AddConditionalEndorsementValues(coserv.CondEndValQuad{
+				Authorities: comid.NewCryptoKeys().Add(o.FallbackAuthority),
+				CETriple:    triple,
 			})
 		}
 	case coserv.ArtifactTypeTrustAnchors: // nolint:dupl
@@ -479,6 +523,152 @@ func ValueTripleQueryFromStatefulGroup(statefulGroup *coserv.StatefulGroup) (*Va
 			})
 		}
 	}
+
+	return query, nil
+}
+
+func ConditionalEndorsementTripleQueryGroupFromCoSERV(cq *coserv.Query) (*ConditionalEndorsementTripleQueryGroup, error) { // nolint:dupl
+	if cq.ResultType == nil {
+		return nil, errors.New("result type not set")
+	}
+
+	if cq.ArtifactType == nil {
+		return nil, errors.New("artifact type not set")
+	}
+
+	if *cq.ResultType != coserv.ResultTypeCollectedArtifacts {
+		return nil, errors.New("only collected results are supported right now")
+	}
+
+	ret := NewConditionalEndorsementTripleQueryGroup()
+
+	if cq.EnvironmentSelector.Classes != nil {
+		for i, statefulClass := range *cq.EnvironmentSelector.Classes {
+			query, err := ConditionalEndorsementTripleQueryFromStatefulClass(&statefulClass)
+			if err != nil {
+				return nil, fmt.Errorf("stateful class %d: %w", i, err)
+			}
+
+			query.ValidOn(time.Now())
+
+			ret.Add(query)
+		}
+	}
+
+	if cq.EnvironmentSelector.Instances != nil {
+		for i, statefulInstance := range *cq.EnvironmentSelector.Instances {
+			query, err := ConditionalEndorsementTripleQueryFromStatefulInstance(&statefulInstance)
+			if err != nil {
+				return nil, fmt.Errorf("stateful instance %d: %w", i, err)
+			}
+
+			query.ValidOn(time.Now())
+
+			ret.Add(query)
+		}
+	}
+
+	if cq.EnvironmentSelector.Groups != nil {
+		for i, statefulGroup := range *cq.EnvironmentSelector.Groups {
+			query, err := ConditionalEndorsementTripleQueryFromStatefulGroup(&statefulGroup)
+			if err != nil {
+				return nil, fmt.Errorf("stateful instance %d: %w", i, err)
+			}
+
+			query.ValidOn(time.Now())
+
+			ret.Add(query)
+		}
+	}
+
+	return ret, nil
+}
+
+func ConditionalEndorsementTripleQueryFromStatefulClass(
+	statefulClass *coserv.StatefulClass,
+) (*ConditionalEndorsementTripleQuery, error) {
+	var measurementModels []*model.Measurement
+	if statefulClass.Measurements != nil {
+		measurementModels = make([]*model.Measurement, len(statefulClass.Measurements.Values))
+
+		for i, measurement := range statefulClass.Measurements.Values {
+			measurementModel, err := model.NewMeasurementFromCoRIM(&measurement)
+			if err != nil {
+				return nil, fmt.Errorf("measurement %d: %w", i, err)
+			}
+			measurementModels[i] = measurementModel
+		}
+	}
+
+	query := NewConditionalEndorsementTripleQuery().Condition(func(seq *StatefulEnvironmentQuery) {
+		seq.Class(func(cs *ClassSubquery) {
+			cs.UpdateFromCoRIM(statefulClass.Class)
+		})
+
+		for _, measurementModel := range measurementModels {
+			seq.Measurement(func(e *MeasurementQuery) {
+				e.UpdateFromModel(measurementModel)
+			})
+		}
+	})
+
+	return query, nil
+}
+
+func ConditionalEndorsementTripleQueryFromStatefulInstance(
+	statefulInstance *coserv.StatefulInstance,
+) (*ConditionalEndorsementTripleQuery, error) {
+	var measurementModels []*model.Measurement
+	if statefulInstance.Measurements != nil {
+		measurementModels = make([]*model.Measurement, len(statefulInstance.Measurements.Values))
+
+		for i, measurement := range statefulInstance.Measurements.Values {
+			measurementModel, err := model.NewMeasurementFromCoRIM(&measurement)
+			if err != nil {
+				return nil, fmt.Errorf("measurement %d: %w", i, err)
+			}
+			measurementModels[i] = measurementModel
+		}
+	}
+
+	query := NewConditionalEndorsementTripleQuery().Condition(func(seq *StatefulEnvironmentQuery) {
+		seq.Instance(statefulInstance.Instance.Type(), statefulInstance.Instance.Bytes())
+
+		for _, measurementModel := range measurementModels {
+			seq.Measurement(func(e *MeasurementQuery) {
+				e.UpdateFromModel(measurementModel)
+			})
+		}
+	})
+
+	return query, nil
+}
+
+func ConditionalEndorsementTripleQueryFromStatefulGroup(
+	statefulGroup *coserv.StatefulGroup,
+) (*ConditionalEndorsementTripleQuery, error) {
+	var measurementModels []*model.Measurement
+	if statefulGroup.Measurements != nil {
+		measurementModels = make([]*model.Measurement, len(statefulGroup.Measurements.Values))
+
+		for i, measurement := range statefulGroup.Measurements.Values {
+			measurementModel, err := model.NewMeasurementFromCoRIM(&measurement)
+			if err != nil {
+				return nil, fmt.Errorf("measurement %d: %w", i, err)
+			}
+			measurementModels[i] = measurementModel
+		}
+	}
+
+	query := NewConditionalEndorsementTripleQuery().Condition(func(seq *StatefulEnvironmentQuery) {
+		seq.Group(statefulGroup.Group.Type(), statefulGroup.Group.Bytes())
+
+		for _, measurementModel := range measurementModels {
+			seq.Measurement(func(e *MeasurementQuery) {
+				e.UpdateFromModel(measurementModel)
+			})
+		}
+	})
 
 	return query, nil
 }

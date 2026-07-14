@@ -47,6 +47,8 @@ func TestEntity_comid_roundtrip(t *testing.T) {
 	assert.Equal(t, selection.ID, selection.DbID())
 	assert.Equal(t, "entities", selection.TableName())
 	assert.True(t, selection.IsTable())
+	assert.Equal(t, selection.OwnerID, selection.OwnerDbID())
+	assert.Equal(t, selection.OwnerType, selection.OwnerName())
 
 	assert.Equal(t, selection.Roles(), []string{"maintainer"})
 
