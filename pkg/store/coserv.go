@@ -67,7 +67,11 @@ func (o *CoSERVService) RunQuery(profile *eat.Profile, query *coserv.Query) (*co
 	}
 
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrNoMatch) {
+			result = coserv.NewResultSet()
+		} else {
+			return nil, err
+		}
 	}
 
 	if expiry != nil {
