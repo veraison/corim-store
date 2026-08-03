@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/veraison/corim/comid"
+	"github.com/veraison/corim/extensions"
 )
 
 func TestExtensionValue_round_trip(t *testing.T) {
@@ -97,4 +98,25 @@ func TestExtensionValue_Delete(t *testing.T) {
 	ev.ID = 1
 	err = ev.Delete(context.Background(), db)
 	assert.NoError(t, err)
+}
+
+func TestExtensionValue_round_trip_cached_only(t *testing.T) {
+	origin := comid.Extensions{ // nolint:govet
+		extensions.Extensions{
+			Cached: map[string]any{
+				"-1": "foo",
+			},
+		},
+	}
+
+	exts, err := CoMIDExtensionsFromCoRIM(origin)
+	assert.NoError(t, err)
+	assert.Len(t, exts, 1)
+	assert.Equal(t, exts[0].JSONTag, "-1")
+	assert.Equal(t, exts[0].FieldName, "")
+
+	out, err := CoMIDExtensionsToCoRIM(exts)
+	assert.NoError(t, err)
+	assert.True(t, out.IsEmpty())
+	assert.EqualValues(t, origin.Cached, out.Cached)
 }

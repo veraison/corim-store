@@ -18,64 +18,63 @@ func CoRIMExtensionsFromCoRIM(origin corim.Extensions) ([]*ExtensionValue, error
 
 func CoMIDExtensionsFromCoRIM(origin comid.Extensions) ([]*ExtensionValue, error) {
 	var ret []*ExtensionValue // nolint: prealloc
-	if origin.IsEmpty() {
-		return ret, nil
-	}
 
-	extType := reflect.TypeOf(origin.IMapValue)
-	extVal := reflect.ValueOf(origin.IMapValue)
-	if extType.Kind() == reflect.Pointer {
-		extType = extType.Elem()
-		extVal = extVal.Elem()
-	}
-
-	for i := 0; i < extVal.NumField(); i++ {
-		typeField := extType.Field(i)
-
-		fieldJSONTag, _ := typeField.Tag.Lookup("json")
-		fieldCBORTag, _ := typeField.Tag.Lookup("cbor")
-
-		retVal := ExtensionValue{
-			FieldKind: typeField.Type.Kind(),
-			FieldName: typeField.Name,
-			JSONTag:   fieldJSONTag,
-			CBORTag:   fieldCBORTag,
+	if !origin.IsEmpty() {
+		extType := reflect.TypeOf(origin.IMapValue)
+		extVal := reflect.ValueOf(origin.IMapValue)
+		if extType.Kind() == reflect.Pointer {
+			extType = extType.Elem()
+			extVal = extVal.Elem()
 		}
 
-		extValField := extVal.Field(i)
-		// if the value is a pointer, dereference it in cases it points
-		// to a base type we don't have to CBOR-encode (e.g. a
-		// *string).
-		if retVal.FieldKind == reflect.Pointer && !extValField.IsNil() {
-			extValField = extValField.Elem()
-			retVal.FieldKind = extValField.Kind()
-		}
+		for i := 0; i < extVal.NumField(); i++ {
+			typeField := extType.Field(i)
 
-		var err error
+			fieldJSONTag, _ := typeField.Tag.Lookup("json")
+			fieldCBORTag, _ := typeField.Tag.Lookup("cbor")
 
-		switch retVal.FieldKind {
-		case reflect.String:
-			retVal.ValueText = extValField.String()
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			retVal.ValueInt = extValField.Int()
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			retVal.ValueInt = int64(extValField.Uint())
-		case reflect.Float32, reflect.Float64:
-			retVal.ValueFloat = extValField.Float()
-		case reflect.Bool:
-			if extValField.Bool() {
-				retVal.ValueInt = 1
-			} else {
-				retVal.ValueInt = 0
+			retVal := ExtensionValue{
+				FieldKind: typeField.Type.Kind(),
+				FieldName: typeField.Name,
+				JSONTag:   fieldJSONTag,
+				CBORTag:   fieldCBORTag,
 			}
-		default:
-			retVal.ValueBytes, err = cbor.Marshal(extValField.Interface())
-			if err != nil {
-				return nil, fmt.Errorf("error CBOR encoding %s: %w", retVal.FieldName, err)
-			}
-		}
 
-		ret = append(ret, &retVal)
+			extValField := extVal.Field(i)
+			// if the value is a pointer, dereference it in cases it points
+			// to a base type we don't have to CBOR-encode (e.g. a
+			// *string).
+			if retVal.FieldKind == reflect.Pointer && !extValField.IsNil() {
+				extValField = extValField.Elem()
+				retVal.FieldKind = extValField.Kind()
+			}
+
+			var err error
+
+			switch retVal.FieldKind {
+			case reflect.String:
+				retVal.ValueText = extValField.String()
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				retVal.ValueInt = extValField.Int()
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				retVal.ValueInt = int64(extValField.Uint())
+			case reflect.Float32, reflect.Float64:
+				retVal.ValueFloat = extValField.Float()
+			case reflect.Bool:
+				if extValField.Bool() {
+					retVal.ValueInt = 1
+				} else {
+					retVal.ValueInt = 0
+				}
+			default:
+				retVal.ValueBytes, err = cbor.Marshal(extValField.Interface())
+				if err != nil {
+					return nil, fmt.Errorf("error CBOR encoding %s: %w", retVal.FieldName, err)
+				}
+			}
+
+			ret = append(ret, &retVal)
+		}
 	}
 
 	for k, v := range origin.Cached {
