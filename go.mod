@@ -7,7 +7,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.8.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jedib0t/go-pretty/v6 v6.7.0
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/spf13/cobra v1.10.1
