@@ -23,6 +23,6 @@ func (o *VersionDescriptor) String() string {
 
 var Version = VersionDescriptor{
 	Major: 0,
-	Minor: 1,
+	Minor: 3,
 	Patch: 0,
 }
