@@ -35,7 +35,8 @@ func TestMeasurement_round_trip(t *testing.T) {
 		SetSerialNumber("foo").
 		SetUEID(comid.TestUEID).
 		SetUUID(comid.TestUUID).
-		SetName("bar")
+		SetName("bar").
+		AddCryptoKey(comid.MustNewCryptoKey(testBytes, comid.BytesType))
 
 	digests := comid.NewDigests().AddDigest(comid.Sha256, testBytes)
 	regs := comid.NewIntegrityRegisters()
@@ -80,6 +81,7 @@ func TestMeasurement_round_trip(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, *digests, selectedDigests)
 
+	assert.Equal(t, testBytes, (*selectedMeas.Val.CryptoKeys)[0].Value.Bytes())
 	assert.NotNil(t, selectedMeas.AuthorizedBy)
 	assert.Equal(t, comid.TestECPubKey, (*selectedMeas.AuthorizedBy)[0].Value.String())
 }

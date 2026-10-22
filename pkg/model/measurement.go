@@ -534,6 +534,11 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 		return nil, err
 	}
 
+	mval.CryptoKeys, err = CryptoKeysToCoRIM(o.CryptoKeys)
+	if err != nil {
+		return nil, err
+	}
+
 	mval.Extensions, err = CoMIDExtensionsToCoRIM(o.Extensions)
 	if err != nil {
 		return nil, err
@@ -633,6 +638,7 @@ func (o *Measurement) Select(ctx context.Context, db bun.IDB) error {
 		Relation("Flags").
 		Relation("IntegrityRegisters.Digests").
 		Relation("ValueEntries").
+		Relation("CryptoKeys").
 		Relation("Extensions").
 		Where("mea.id = ?", o.ID).
 		Scan(ctx)

@@ -22,7 +22,7 @@ require (
 	github.com/uptrace/bun/driver/sqliteshim v1.2.15
 	github.com/uptrace/bun/extra/bundebug v1.2.15
 	github.com/veraison/cmw v0.2.0
-	github.com/veraison/corim v1.1.3-0.20260611115812-7ca640710b0b
+	github.com/veraison/corim v1.1.3-0.20261012130145-a6f38dd08fd4
 	github.com/veraison/eat v0.0.0-20210331113810-3da8a4dd42ff
 	github.com/veraison/go-cose v1.3.0
 	github.com/veraison/swid v1.1.1-0.20251003121634-fd1f7f1e1897
