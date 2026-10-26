@@ -29,7 +29,7 @@ type ModuleTag struct {
 	KeyTriples                          []*KeyTriple                          `bun:"rel:has-many,join:id=module_id"`
 	ConditionalEndorsementTriples       []*ConditionalEndorsementTriple       `bun:"rel:has-many,join:id=module_id"`
 	ConditionalEndorsementSeriesTriples []*ConditionalEndorsementSeriesTriple `bun:"rel:has-many,join:id=module_id"`
-	DomainDependencyTriples             []*DomainDependencyTriple             `bun:"rel:has-many,join:id=module_id"`
+	TrustDependencyTriples              []*TrustDependencyTriple              `bun:"rel:has-many,join:id=module_id"`
 	DomainMembershipTriples             []*DomainMembershipTriple             `bun:"rel:has-many,join:id=module_id"`
 
 	LinkedTags []*LinkedTag `bun:"rel:has-many,join:id=module_id"`
@@ -138,11 +138,11 @@ func (o *ModuleTag) FromCoRIM(origin *comid.Comid) error {
 	o.ConditionalEndorsementSeriesTriples = append(o.ConditionalEndorsementSeriesTriples,
 		condEndSeriesTriples...)
 
-	domainDependTriples, err := DomainDependencyTriplesFromCoRIM(origin.Triples.DomainDependencies)
+	trustDependTriples, err := TrustDependencyTriplesFromCoRIM(origin.Triples.TrustDependencies)
 	if err != nil {
 		return err
 	}
-	o.DomainDependencyTriples = domainDependTriples
+	o.TrustDependencyTriples = trustDependTriples
 
 	domainMemberTriples, err := DomainMembershipTriplesFromCoRIM(origin.Triples.DomainMemberships)
 	if err != nil {
@@ -233,7 +233,7 @@ func (o *ModuleTag) ToCoRIM() (*comid.Comid, error) {
 		return nil, err
 	}
 
-	ret.Triples.DomainDependencies, err = DomainDependencyTriplesToCoRIM(o.DomainDependencyTriples)
+	ret.Triples.TrustDependencies, err = TrustDependencyTriplesToCoRIM(o.TrustDependencyTriples)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (o *ModuleTag) SetActive(value bool) {
 		cest.IsActive = value
 	}
 
-	for _, dmt := range o.DomainDependencyTriples {
+	for _, dmt := range o.TrustDependencyTriples {
 		dmt.IsActive = value
 	}
 
@@ -349,12 +349,12 @@ func (o *ModuleTag) Insert(ctx context.Context, db bun.IDB) error {
 		}
 	}
 
-	for _, triple := range o.DomainDependencyTriples {
+	for _, triple := range o.TrustDependencyTriples {
 		triple.ModuleID = o.ID
 
 		if err := triple.Insert(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("error inserting domain dependency triple %+v: %w", triple, err)
+			return fmt.Errorf("error inserting trust dependency triple %+v: %w", triple, err)
 		}
 	}
 
@@ -403,7 +403,7 @@ func (o *ModuleTag) Select(ctx context.Context, db bun.IDB) error {
 		Relation("KeyTriples").
 		Relation("ConditionalEndorsementTriples").
 		Relation("ConditionalEndorsementSeriesTriples").
-		Relation("DomainDependencyTriples").
+		Relation("TrustDependencyTriples").
 		Relation("DomainMembershipTriples").
 		Relation("Extensions").
 		Relation("TriplesExtensions").
@@ -449,10 +449,10 @@ func (o *ModuleTag) Select(ctx context.Context, db bun.IDB) error {
 		}
 	}
 
-	for i, triple := range o.DomainDependencyTriples {
+	for i, triple := range o.TrustDependencyTriples {
 		if err := triple.Select(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("domain dependency triple at index %d: %w", i, err)
+			return fmt.Errorf("trust dependency triple at index %d: %w", i, err)
 		}
 	}
 
@@ -513,10 +513,10 @@ func (o *ModuleTag) Delete(ctx context.Context, db bun.IDB) error { // nolint:du
 		}
 	}
 
-	for i, triple := range o.DomainDependencyTriples {
+	for i, triple := range o.TrustDependencyTriples {
 		if err := triple.Delete(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("domain dependency triple at index %d: %w", i, err)
+			return fmt.Errorf("trust dependency triple at index %d: %w", i, err)
 		}
 	}
 
@@ -556,7 +556,7 @@ func (o *ModuleTag) Validate() error {
 	}
 
 	if len(o.ValueTriples) == 0 && len(o.KeyTriples) == 0 &&
-		len(o.DomainDependencyTriples) == 0 && len(o.DomainMembershipTriples) == 0 &&
+		len(o.TrustDependencyTriples) == 0 && len(o.DomainMembershipTriples) == 0 &&
 		len(o.ConditionalEndorsementTriples) == 0 && len(o.ConditionalEndorsementSeriesTriples) == 0 {
 		return errors.New("no triples specified")
 	}
@@ -591,9 +591,9 @@ func (o *ModuleTag) Validate() error {
 		}
 	}
 
-	for i, domainDependTriple := range o.DomainDependencyTriples {
-		if err := domainDependTriple.Validate(); err != nil {
-			return fmt.Errorf("domain dependency triple at index %d: %w", i, err)
+	for i, trustDependTriple := range o.TrustDependencyTriples {
+		if err := trustDependTriple.Validate(); err != nil {
+			return fmt.Errorf("trust dependency triple at index %d: %w", i, err)
 		}
 	}
 

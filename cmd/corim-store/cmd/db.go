@@ -374,7 +374,7 @@ func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any
 	}
 
 	if all && !flags["no-domain-dependency-triples"] || flags["domain-dependency-triples"] {
-		selected, err := selectModel[model.DomainDependencyTriple](db, ctx)
+		selected, err := selectModel[model.TrustDependencyTriple](db, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error selecting domain dependency triples: %w", err)
 		}

@@ -8,8 +8,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type DomainDependencyTripleEntry struct {
-	bun.BaseModel `bun:"table:domain_dependency_triple_entries,alias:ddte"`
+type TrustDependencyTripleEntry struct {
+	bun.BaseModel `bun:"table:trust_dependency_triple_entries,alias:tdte"`
 
 	TripleDbID    int64 `bun:"triple_db_id"`
 	ManifestDbID  int64 `bun:"manifest_db_id"`
@@ -36,19 +36,19 @@ type DomainDependencyTripleEntry struct {
 	NotAfter  *time.Time
 }
 
-func (o *DomainDependencyTripleEntry) DbID() int64 {
+func (o *TrustDependencyTripleEntry) DbID() int64 {
 	return o.TripleDbID
 }
 
-func (o *DomainDependencyTripleEntry) TableName() string {
-	return "domain_dependency_triple_entries"
+func (o *TrustDependencyTripleEntry) TableName() string {
+	return "trust_dependency_triple_entries"
 }
 
-func (o *DomainDependencyTripleEntry) IsTable() bool {
+func (o *TrustDependencyTripleEntry) IsTable() bool {
 	return false
 }
 
-func (o *DomainDependencyTripleEntry) Select(ctx context.Context, db bun.IDB) error {
+func (o *TrustDependencyTripleEntry) Select(ctx context.Context, db bun.IDB) error {
 	if o.TripleDbID == 0 {
 		return errors.New("TripleDbID not set")
 	}
@@ -59,7 +59,7 @@ func (o *DomainDependencyTripleEntry) Select(ctx context.Context, db bun.IDB) er
 		Scan(ctx)
 }
 
-func (o *DomainDependencyTripleEntry) ToManifest(ctx context.Context, db bun.IDB) (*Manifest, error) {
+func (o *TrustDependencyTripleEntry) ToManifest(ctx context.Context, db bun.IDB) (*Manifest, error) {
 	if o.ManifestDbID == 0 {
 		return nil, errors.New("ManifestDbID not set")
 	}
@@ -73,7 +73,7 @@ func (o *DomainDependencyTripleEntry) ToManifest(ctx context.Context, db bun.IDB
 	return man, nil
 }
 
-func (o *DomainDependencyTripleEntry) ToModuleTag(ctx context.Context, db bun.IDB) (*ModuleTag, error) {
+func (o *TrustDependencyTripleEntry) ToModuleTag(ctx context.Context, db bun.IDB) (*ModuleTag, error) {
 	if o.ModuleTagDbID == 0 {
 		return nil, errors.New("ModuleTagDbID not set")
 	}
@@ -87,12 +87,12 @@ func (o *DomainDependencyTripleEntry) ToModuleTag(ctx context.Context, db bun.ID
 	return mt, nil
 }
 
-func (o *DomainDependencyTripleEntry) ToTriple(ctx context.Context, db bun.IDB) (*DomainDependencyTriple, error) {
+func (o *TrustDependencyTripleEntry) ToTriple(ctx context.Context, db bun.IDB) (*TrustDependencyTriple, error) {
 	if o.TripleDbID == 0 {
 		return nil, errors.New("TripleDbID not set")
 	}
 
-	triple := &DomainDependencyTriple{ID: o.TripleDbID}
+	triple := &TrustDependencyTriple{ID: o.TripleDbID}
 
 	if err := triple.Select(ctx, db); err != nil {
 		return nil, err

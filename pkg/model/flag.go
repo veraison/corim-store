@@ -23,6 +23,7 @@ const (
 	IsImmutableFlag                int64 = 7
 	IsTcbFlag                      int64 = 8
 	IsConfidentialityProtectedFlag int64 = 9
+	IsRuntimeUpdatable             int64 = 10
 )
 
 func FlagsFromCoRIM(origin *comid.FlagsMap) ([]*Flag, error) {
@@ -70,6 +71,10 @@ func FlagsFromCoRIM(origin *comid.FlagsMap) ([]*Flag, error) {
 
 	if origin.IsConfidentialityProtected != nil {
 		ret = append(ret, NewFlag(IsConfidentialityProtectedFlag, *origin.IsConfidentialityProtected))
+	}
+
+	if origin.IsRuntimeUpdatable != nil {
+		ret = append(ret, NewFlag(IsRuntimeUpdatable, *origin.IsRuntimeUpdatable))
 	}
 
 	for _, extVal := range origin.Values() {
@@ -122,6 +127,8 @@ func FlagsToCoRIM(origin []*Flag) (*comid.FlagsMap, error) {
 			ret.IsTcb = &origFlag.Value
 		case IsConfidentialityProtectedFlag:
 			ret.IsConfidentialityProtected = &origFlag.Value
+		case IsRuntimeUpdatable:
+			ret.IsRuntimeUpdatable = &origFlag.Value
 		default:
 			extMap[origFlag.CodePoint] = origFlag.Value
 		}

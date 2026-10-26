@@ -53,7 +53,7 @@ type ConditionalEndorsementSeriesRecord struct {
 
 	ID int64 `bun:",pk,autoincrement"`
 
-	Selection []*Measurement `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_record_selection"`
+	Condition []*Measurement `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_record_condition"`
 	Addition  []*Measurement `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_record_addition"`
 	TripleID  int64
 }
@@ -91,10 +91,10 @@ func (o *ConditionalEndorsementSeriesRecord) IsTable() bool {
 }
 
 func (o *ConditionalEndorsementSeriesRecord) FromCoRIM(origin *comid.CondEndorseSeriesRecord) error {
-	selection, err := MeasurementsFromCoRIM(origin.Selection)
+	condition, err := MeasurementsFromCoRIM(origin.Condition)
 	if err != nil {
 		// coverage:ignore
-		return fmt.Errorf("selection: %w", err)
+		return fmt.Errorf("condition: %w", err)
 	}
 
 	addition, err := MeasurementsFromCoRIM(origin.Addition)
@@ -103,17 +103,17 @@ func (o *ConditionalEndorsementSeriesRecord) FromCoRIM(origin *comid.CondEndorse
 		return fmt.Errorf("addition: %w", err)
 	}
 
-	o.Selection = selection
+	o.Condition = condition
 	o.Addition = addition
 
 	return nil
 }
 
 func (o *ConditionalEndorsementSeriesRecord) ToCoRIM() (*comid.CondEndorseSeriesRecord, error) {
-	selection, err := MeasurementsToCoRIM(o.Selection)
+	condition, err := MeasurementsToCoRIM(o.Condition)
 	if err != nil {
 		// coverage:ignore
-		return nil, fmt.Errorf("selection: %w", err)
+		return nil, fmt.Errorf("condition: %w", err)
 	}
 
 	addition, err := MeasurementsToCoRIM(o.Addition)
@@ -123,14 +123,14 @@ func (o *ConditionalEndorsementSeriesRecord) ToCoRIM() (*comid.CondEndorseSeries
 	}
 
 	return &comid.CondEndorseSeriesRecord{
-		Selection: selection,
+		Condition: condition,
 		Addition:  addition,
 	}, nil
 }
 
 func (o *ConditionalEndorsementSeriesRecord) Validate() error {
-	if len(o.Selection) == 0 {
-		return errors.New("empty selection")
+	if len(o.Condition) == 0 {
+		return errors.New("empty condition")
 	}
 
 	if len(o.Addition) == 0 {
@@ -150,13 +150,13 @@ func (o *ConditionalEndorsementSeriesRecord) Insert(ctx context.Context, db bun.
 		return err
 	}
 
-	for i, measurement := range o.Selection {
+	for i, measurement := range o.Condition {
 		measurement.OwnerID = o.ID
-		measurement.OwnerType = "ces_record_selection"
+		measurement.OwnerType = "ces_record_condition"
 
 		if err := measurement.Insert(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("selection[%d]: %w", i, err)
+			return fmt.Errorf("condition[%d]: %w", i, err)
 		}
 	}
 
@@ -180,7 +180,7 @@ func (o *ConditionalEndorsementSeriesRecord) Select(ctx context.Context, db bun.
 
 	err := db.NewSelect().
 		Model(o).
-		Relation("Selection").
+		Relation("Condition").
 		Relation("Addition").
 		Where("cesr.id = ?", o.ID).
 		Scan(ctx)
@@ -189,9 +189,9 @@ func (o *ConditionalEndorsementSeriesRecord) Select(ctx context.Context, db bun.
 		return err
 	}
 
-	for i, measurement := range o.Selection {
+	for i, measurement := range o.Condition {
 		if err := measurement.Select(ctx, db); err != nil {
-			return fmt.Errorf("selection[%d]: %w", i, err)
+			return fmt.Errorf("condition[%d]: %w", i, err)
 		}
 	}
 
@@ -209,9 +209,9 @@ func (o *ConditionalEndorsementSeriesRecord) Delete(ctx context.Context, db bun.
 		return errors.New("ID not set")
 	}
 
-	for i, measurement := range o.Selection {
+	for i, measurement := range o.Condition {
 		if err := measurement.Delete(ctx, db); err != nil {
-			return fmt.Errorf("selection[%d]: %w", i, err)
+			return fmt.Errorf("condition[%d]: %w", i, err)
 		}
 	}
 
@@ -274,9 +274,9 @@ type ConditionalEndorsementSeriesTriple struct {
 	EnvironmentID int64        `bun:",nullzero"`
 	Environment   *Environment `bun:"rel:belongs-to,join:environment_id=id"`
 
-	Measurements []*Measurement `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_condition"`
+	Measurements []*Measurement `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_common_condition"`
 
-	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_condition"`
+	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:ces_common_condition"`
 
 	Series []*ConditionalEndorsementSeriesRecord `bun:"rel:has-many,join:id=triple_id"`
 
@@ -332,22 +332,22 @@ func (o *ConditionalEndorsementSeriesTriple) IsTable() bool {
 }
 
 func (o *ConditionalEndorsementSeriesTriple) FromCoRIM(origin *comid.CondEndorseSeriesTriple) error {
-	env, err := NewEnvironmentFromCoRIM(&origin.Condition.Environment)
+	env, err := NewEnvironmentFromCoRIM(&origin.CommonCondition.Environment)
 	if err != nil {
 		// coverage:ignore
-		return fmt.Errorf("condition environment: %w", err)
+		return fmt.Errorf("common condition environment: %w", err)
 	}
 
-	meas, err := MeasurementsFromCoRIM(origin.Condition.Measurements)
+	meas, err := MeasurementsFromCoRIM(origin.CommonCondition.Measurements)
 	if err != nil {
 		// coverage:ignore
-		return fmt.Errorf("condition measurements: %w", err)
+		return fmt.Errorf("common condition measurements: %w", err)
 	}
 
-	auth, err := CryptoKeysFromCoRIM(origin.Condition.AuthorizedBy)
+	auth, err := CryptoKeysFromCoRIM(origin.CommonCondition.AuthorizedBy)
 	if err != nil {
 		// coverage:ignore
-		return fmt.Errorf("condition authorized-by: %w", err)
+		return fmt.Errorf("common condition authorized-by: %w", err)
 	}
 
 	series, err := ConditionalEndorsementSeriesRecordsFromCoRIM(origin.Series)
@@ -372,21 +372,21 @@ func (o *ConditionalEndorsementSeriesTriple) ToCoRIM() (*comid.CondEndorseSeries
 		// coverage:ignore
 		return nil, fmt.Errorf("condition environment: %w", err)
 	}
-	ret.Condition.Environment = *env
+	ret.CommonCondition.Environment = *env
 
 	meas, err := MeasurementsToCoRIM(o.Measurements)
 	if err != nil {
 		// coverage:ignore
 		return nil, fmt.Errorf("condition measurements: %w", err)
 	}
-	ret.Condition.Measurements = meas
+	ret.CommonCondition.Measurements = meas
 
 	auth, err := CryptoKeysToCoRIM(o.AuthorizedBy)
 	if err != nil {
 		// coverage:ignore
 		return nil, fmt.Errorf("condition authorized-by: %w", err)
 	}
-	ret.Condition.AuthorizedBy = auth
+	ret.CommonCondition.AuthorizedBy = auth
 
 	series, err := ConditionalEndorsementSeriesRecordsToCoRIM(o.Series)
 	if err != nil {
@@ -438,21 +438,21 @@ func (o *ConditionalEndorsementSeriesTriple) Insert(ctx context.Context, db bun.
 
 	for i, mea := range o.Measurements {
 		mea.OwnerID = o.ID
-		mea.OwnerType = "ces_condition"
+		mea.OwnerType = "ces_common_condition"
 
 		if err := mea.Insert(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("condition measurement[%d]: %w", i, err)
+			return fmt.Errorf("common condition measurement[%d]: %w", i, err)
 		}
 	}
 
 	for i, auth := range o.AuthorizedBy {
 		auth.OwnerID = o.ID
-		auth.OwnerType = "ces_condition"
+		auth.OwnerType = "ces_common_condition"
 
 		if err := auth.Insert(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("condition authorized-by[%d]: %w", i, err)
+			return fmt.Errorf("common condition authorized-by[%d]: %w", i, err)
 		}
 	}
 
@@ -489,7 +489,7 @@ func (o *ConditionalEndorsementSeriesTriple) Select(ctx context.Context, db bun.
 	for i, measurement := range o.Measurements {
 		if err := measurement.Select(ctx, db); err != nil {
 			// coverage:ignore
-			return fmt.Errorf("condition measurement[%d]: %w", i, err)
+			return fmt.Errorf("common condition measurement[%d]: %w", i, err)
 		}
 	}
 

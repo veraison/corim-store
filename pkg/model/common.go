@@ -77,19 +77,24 @@ func ParseSWIDTagID(tag swid.TagID) (TagIDType, string) {
 }
 
 var tableModels = []any{
-	(*ConditionalEndorsementTriple)(nil),
+	(*BytesMatcher)(nil),
+	(*BytesMatcherElement)(nil),
 	(*ConditionalEndorsementSeriesRecord)(nil),
 	(*ConditionalEndorsementSeriesTriple)(nil),
+	(*ConditionalEndorsementTriple)(nil),
 	(*CryptoKey)(nil),
 	(*Digest)(nil),
 	(*DomainEntry)(nil),
-	(*DomainDependencyTriple)(nil),
 	(*DomainMembershipTriple)(nil),
 	(*Entity)(nil),
 	(*Environment)(nil),
 	(*ExtensionValue)(nil),
 	(*Flag)(nil),
+	(*FloatMatcher)(nil),
+	(*FloatMatcherElement)(nil),
 	(*Href)(nil),
+	(*IntMatcher)(nil),
+	(*IntMatcherElement)(nil),
 	(*IntegrityRegister)(nil),
 	(*KeyTriple)(nil),
 	(*LinkedTag)(nil),
@@ -100,16 +105,19 @@ var tableModels = []any{
 	(*ModuleTag)(nil),
 	(*RoleEntry)(nil),
 	(*StatefulEnvironment)(nil),
-	(*ValueTriple)(nil),
+	(*TextMatcher)(nil),
+	(*TextMatcherElement)(nil),
 	(*Token)(nil),
+	(*TrustDependencyTriple)(nil),
+	(*ValueTriple)(nil),
 }
 
 var viewModels = []any{
-	(*ConditionalEndorsementTripleEntry)(nil),
 	(*ConditionalEndorsementSeriesTripleEntry)(nil),
-	(*DomainDependencyTripleEntry)(nil),
+	(*ConditionalEndorsementTripleEntry)(nil),
 	(*DomainMembershipTripleEntry)(nil),
 	(*KeyTripleEntry)(nil),
+	(*TrustDependencyTripleEntry)(nil),
 	(*ValueTripleEntry)(nil),
 }
 

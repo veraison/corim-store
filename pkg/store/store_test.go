@@ -520,11 +520,11 @@ func TestStore_QueryConditionalEndorsementSeriesTriples(t *testing.T) {
 	assert.Len(t, triples, 2)
 	assert.Equal(t,
 		comid.MustHexDecode(t, "0001020304050607000102030405060700010203040506070001020304050607"),
-		triples[0].Condition.Environment.Class.ClassID.Bytes(),
+		triples[0].CommonCondition.Environment.Class.ClassID.Bytes(),
 	)
 }
 
-func TestStore_QueryDomainDependencyTriples(t *testing.T) {
+func TestStore_QueryTrustDependencyTriples(t *testing.T) {
 	db := model.NewTestDBWithFixtures(t, map[string][]byte{
 		"environments.yaml": environmentsFixture,
 		"manifests.yaml":    manifestsFixture,
@@ -536,7 +536,7 @@ func TestStore_QueryDomainDependencyTriples(t *testing.T) {
 	store, err := OpenWithDB(context.Background(), db)
 	require.NoError(t, err)
 
-	triples, err := store.QueryDomainDependencyTriples(nil)
+	triples, err := store.QueryTrustDependencyTriples(nil)
 	assert.NoError(t, err)
 	assert.Len(t, triples, 2)
 	assert.Equal(t,

@@ -86,7 +86,7 @@ func TestModuleTag_round_trip(t *testing.T) {
 									comid.PKIXBase64CertType)),
 						},
 					},
-					DomainDependencies: &comid.DomainDependencyTriples{
+					TrustDependencies: &comid.TrustDependencyTriples{
 						{
 							DomainID: comid.Environment{
 								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
@@ -135,7 +135,7 @@ func TestModuleTag_round_trip(t *testing.T) {
 						}),
 					}),
 					CondEndorseSeries: comid.NewCondEndorseSeriesTriples().Add(&comid.CondEndorseSeriesTriple{
-						Condition: comid.CondEndorseSeriesCondition{
+						CommonCondition: comid.CondEndorseSeriesCondition{
 							Environment: comid.Environment{
 								Instance: comid.MustNewUEIDInstance(comid.TestUEID),
 							},
@@ -150,7 +150,7 @@ func TestModuleTag_round_trip(t *testing.T) {
 							)),
 						},
 						Series: *comid.NewCondEndorseSeriesRecords().Add(&comid.CondEndorseSeriesRecord{
-							Selection: *comid.NewMeasurements().
+							Condition: *comid.NewMeasurements().
 								Add(&comid.Measurement{
 									Val: comid.Mval{
 										SVN: testSvn,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 	"time"
 
@@ -1689,10 +1690,10 @@ func NewDomainEntryQuery() *DomainEntryQuery {
 	return &DomainEntryQuery{}
 }
 
-type DomainDependencyTripleQuery = DomainTripleQuery[*model.DomainDependencyTripleEntry]
+type TrustDependencyTripleQuery = DomainTripleQuery[*model.TrustDependencyTripleEntry]
 
-func NewDomainDependencyTripleQuery() *DomainTripleQuery[*model.DomainDependencyTripleEntry] {
-	return NewDomainTripleQuery[*model.DomainDependencyTripleEntry]("domain_dependency_triple")
+func NewTrustDependencyTripleQuery() *DomainTripleQuery[*model.TrustDependencyTripleEntry] {
+	return NewDomainTripleQuery[*model.TrustDependencyTripleEntry]("trust_dependency_triple")
 }
 
 type DomainMembershipTripleQuery = DomainTripleQuery[*model.DomainMembershipTripleEntry]
@@ -2701,7 +2702,7 @@ func (o *ConditionalEndorsementSeriesRecordQuery) TripleID(
 
 func (o *ConditionalEndorsementSeriesRecordQuery) SelectionGroup() *MeasurementQueryGroup {
 	if o.selections == nil {
-		o.selections = NewMeasurementQueryGroup("ces_record_selection")
+		o.selections = NewMeasurementQueryGroup("ces_record_condition")
 	}
 
 	return o.selections
@@ -3031,7 +3032,7 @@ func (o *ConditionalEndorsementSeriesTripleQuery) Record(
 
 func (o *ConditionalEndorsementSeriesTripleQuery) MeasurementGroup() *MeasurementQueryGroup {
 	if o.measurementGroup == nil {
-		o.measurementGroup = NewMeasurementQueryGroup("ces_condition")
+		o.measurementGroup = NewMeasurementQueryGroup("ces_common_condition")
 	}
 
 	return o.measurementGroup
@@ -3040,7 +3041,7 @@ func (o *ConditionalEndorsementSeriesTripleQuery) MeasurementGroup() *Measuremen
 func (o *ConditionalEndorsementSeriesTripleQuery) Measurement(
 	updater func(e *MeasurementQuery),
 ) *ConditionalEndorsementSeriesTripleQuery {
-	mq := NewMeasurementQuery().OwnerType("ces_condition")
+	mq := NewMeasurementQuery().OwnerType("ces_common_condition")
 	updater(mq)
 	o.MeasurementGroup().Add(mq)
 	return o
@@ -3098,7 +3099,7 @@ func (o *ConditionalEndorsementSeriesTripleQuery) Run(
 	if !o.AuthorizedBySubquery().IsEmpty() {
 		o.saveTripleIDs()
 		cryptoKeys, err := o.AuthorizedBySubquery().
-			OwnerType("ces_condition").
+			OwnerType("ces_common_condition").
 			OwnerID(o.tripleDbIDs...).
 			Run(ctx, db)
 
@@ -3752,15 +3753,29 @@ type MeasurementQuery struct {
 	modelQuery
 	ownedQuery
 
-	mkeyTypes []string
-	mkeyBytes [][]byte
-	mkeys     []*keyQueryEntry
+	mkeyTypes       []string
+	mkeyBytes       [][]byte
+	mkeys           []*keyQueryEntry
+	intMatcherIDs   []int64
+	floatMatcherIDs []int64
+	textMatcherIDs  []int64
+	bytesMatcherIDs []int64
 
 	authByQuery            *CryptoKeyQuery
 	mvalQuery              *MeasurementValueQuery
 	digestQuery            *DigestQuery
 	integrityRegisterQuery *IntegrityRegisterQuery
 	flagQuery              *FlagQuery
+	intQuery               *IntMatcherQuery
+	floatQuery             *FloatMatcherQuery
+	textQuery              *TextMatcherQuery
+	bytesQuery             *BytesMatcherQuery
+
+	savedIntMatcherIDs   []int64
+	savedFloatMatcherIDs []int64
+	savedTextMatcherIDs  []int64
+	savedBytesMatcherIDs []int64
+	matcherIDsSaved      bool
 }
 
 func NewMeasurementQuery() *MeasurementQuery {
@@ -3902,6 +3917,79 @@ func (o *MeasurementQuery) Flag(updater func(*FlagQuery)) *MeasurementQuery {
 	return o
 }
 
+func (o *MeasurementQuery) IntMatcherID(value ...int64) *MeasurementQuery {
+	o.intMatcherIDs = append(o.intMatcherIDs, value...)
+	return o
+}
+
+func (o *MeasurementQuery) IntSubquery() *IntMatcherQuery {
+	if o.intQuery == nil {
+		o.intQuery = NewIntMatcherQuery()
+	}
+
+	return o.intQuery
+}
+
+func (o *MeasurementQuery) Int(updater func(*IntMatcherQuery)) *MeasurementQuery {
+	updater(o.IntSubquery())
+	return o
+}
+
+func (o *MeasurementQuery) FloatMatcherID(value ...int64) *MeasurementQuery {
+	o.floatMatcherIDs = append(o.floatMatcherIDs, value...)
+	return o
+}
+
+func (o *MeasurementQuery) FloatSubquery() *FloatMatcherQuery {
+	if o.floatQuery == nil {
+		o.floatQuery = NewFloatMatcherQuery()
+	}
+
+	return o.floatQuery
+}
+
+func (o *MeasurementQuery) Float(updater func(*FloatMatcherQuery)) *MeasurementQuery {
+	updater(o.FloatSubquery())
+	return o
+
+}
+
+func (o *MeasurementQuery) TextMatcherID(value ...int64) *MeasurementQuery {
+	o.textMatcherIDs = append(o.textMatcherIDs, value...)
+	return o
+}
+
+func (o *MeasurementQuery) TextSubquery() *TextMatcherQuery {
+	if o.textQuery == nil {
+		o.textQuery = NewTextMatcherQuery()
+	}
+
+	return o.textQuery
+}
+
+func (o *MeasurementQuery) Text(updater func(*TextMatcherQuery)) *MeasurementQuery {
+	updater(o.TextSubquery())
+	return o
+}
+
+func (o *MeasurementQuery) BytesMatcherID(value ...int64) *MeasurementQuery {
+	o.bytesMatcherIDs = append(o.bytesMatcherIDs, value...)
+	return o
+}
+
+func (o *MeasurementQuery) BytesSubquery() *BytesMatcherQuery {
+	if o.bytesQuery == nil {
+		o.bytesQuery = NewBytesMatcherQuery()
+	}
+
+	return o.bytesQuery
+}
+
+func (o *MeasurementQuery) Bytes(updater func(*BytesMatcherQuery)) *MeasurementQuery {
+	updater(o.BytesSubquery())
+	return o
+}
+
 func (o *MeasurementQuery) UpdateFromModel(value *model.Measurement) *MeasurementQuery {
 	if value.KeyType != nil && value.KeyBytes != nil {
 		o.Mkey(*value.KeyType, *value.KeyBytes)
@@ -3929,6 +4017,11 @@ func (o *MeasurementQuery) UpdateFromModel(value *model.Measurement) *Measuremen
 		o.ValueSubquery().UpdateFromModel(entry)
 	}
 
+	o.IntSubquery().UpdateFromModel(value.IntMatcher)
+	o.FloatSubquery().UpdateFromModel(value.FloatMatcher)
+	o.TextSubquery().UpdateFromModel(value.TextMatcher)
+	o.BytesSubquery().UpdateFromModel(value.BytesMatcher)
+
 	return o
 }
 
@@ -3938,6 +4031,10 @@ func (o *MeasurementQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 
 	addOrGroupWhereClause("key_type", o.mkeyTypes, false, query, dialect)
 	addOrGroupWhereClause("key_bytes", o.mkeyBytes, false, query, dialect)
+	addOrGroupWhereClause("int_matcher_id", o.intMatcherIDs, false, query, dialect)
+	addOrGroupWhereClause("float_matcher_id", o.floatMatcherIDs, false, query, dialect)
+	addOrGroupWhereClause("text_matcher_id", o.textMatcherIDs, false, query, dialect)
+	addOrGroupWhereClause("bytes_matcher_id", o.bytesMatcherIDs, false, query, dialect)
 	updateQueryWithEntries(o.mkeys, query, dialect)
 }
 
@@ -4050,8 +4147,105 @@ func (o *MeasurementQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Measur
 		}
 	}
 
+	if !o.IntSubquery().IsEmpty() {
+		o.saveMatcherIDs()
+
+		savedIDs := o.IntSubquery().ids
+		intMatchers, err := o.IntSubquery().ID(o.intMatcherIDs...).Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.IntSubquery().ids = savedIDs
+
+		if err != nil {
+			o.restoreIDs()
+			o.restoreMatcherIDs()
+			return nil, fmt.Errorf("int-matchers: %w", err)
+		}
+
+		intMatcherIds := make([]int64, len(intMatchers))
+		for i, matcher := range intMatchers {
+			intMatcherIds[i] = matcher.ID
+		}
+
+		o.intMatcherIDs = intMatcherIds
+	}
+
+	if !o.FloatSubquery().IsEmpty() {
+		o.saveMatcherIDs()
+
+		savedIDs := o.FloatSubquery().ids
+		floatMatchers, err := o.FloatSubquery().ID(o.floatMatcherIDs...).Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.FloatSubquery().ids = savedIDs
+
+		if err != nil {
+			o.restoreIDs()
+			o.restoreMatcherIDs()
+			return nil, fmt.Errorf("float-matchers: %w", err)
+		}
+
+		floatMatcherIds := make([]int64, len(floatMatchers))
+		for i, matcher := range floatMatchers {
+			floatMatcherIds[i] = matcher.ID
+		}
+
+		o.floatMatcherIDs = floatMatcherIds
+	}
+
+	if !o.TextSubquery().IsEmpty() {
+		o.saveMatcherIDs()
+
+		savedIDs := o.TextSubquery().ids
+		textMatchers, err := o.TextSubquery().ID(o.textMatcherIDs...).Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.TextSubquery().ids = savedIDs
+
+		if err != nil {
+			o.restoreIDs()
+			o.restoreMatcherIDs()
+			return nil, fmt.Errorf("text-matchers: %w", err)
+		}
+
+		textMatcherIds := make([]int64, len(textMatchers))
+		for i, matcher := range textMatchers {
+			textMatcherIds[i] = matcher.ID
+		}
+
+		o.textMatcherIDs = textMatcherIds
+	}
+
+	if !o.BytesSubquery().IsEmpty() {
+		o.saveMatcherIDs()
+
+		savedIDs := o.BytesSubquery().ids
+		bytesMatchers, err := o.BytesSubquery().ID(o.bytesMatcherIDs...).Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.BytesSubquery().ids = savedIDs
+
+		if err != nil {
+			o.restoreIDs()
+			o.restoreMatcherIDs()
+			return nil, fmt.Errorf("bytes-matchers: %w", err)
+		}
+
+		bytesMatcherIds := make([]int64, len(bytesMatchers))
+		for i, matcher := range bytesMatchers {
+			bytesMatcherIds[i] = matcher.ID
+		}
+
+		o.bytesMatcherIDs = bytesMatcherIds
+	}
+
 	ret, err := runQuery(ctx, db, o)
 	o.restoreIDs()
+	o.restoreMatcherIDs()
 	return ret, err
 }
 
@@ -4065,7 +4259,34 @@ func (o *MeasurementQuery) IsEmpty() bool {
 		o.ValueSubquery().IsEmpty() &&
 		o.DigestsSubquery().IsEmpty() &&
 		o.IntegrityRegistersSubquery().IsEmpty() &&
-		o.FlagsSubquery().IsEmpty()
+		o.FlagsSubquery().IsEmpty() &&
+		o.IntSubquery().IsEmpty()
+}
+
+func (o *MeasurementQuery) saveMatcherIDs() {
+	if o.matcherIDsSaved {
+		return
+	}
+
+	o.savedIntMatcherIDs = o.intMatcherIDs
+	o.savedFloatMatcherIDs = o.floatMatcherIDs
+	o.savedTextMatcherIDs = o.textMatcherIDs
+	o.savedBytesMatcherIDs = o.bytesMatcherIDs
+
+	o.matcherIDsSaved = true
+}
+
+func (o *MeasurementQuery) restoreMatcherIDs() {
+	if !o.matcherIDsSaved {
+		return
+	}
+
+	o.intMatcherIDs = o.savedIntMatcherIDs
+	o.floatMatcherIDs = o.savedFloatMatcherIDs
+	o.textMatcherIDs = o.savedTextMatcherIDs
+	o.bytesMatcherIDs = o.savedBytesMatcherIDs
+
+	o.matcherIDsSaved = false
 }
 
 type TokenQuery struct {
@@ -4162,6 +4383,317 @@ func (o *TokenQuery) IsEmpty() bool {
 		o.AuthoritySubquery().IsEmpty()
 }
 
+type IntMatcherQuery struct {
+	modelQuery
+
+	types  []string
+	values []*intMatcherValue
+}
+
+func NewIntMatcherQuery() *IntMatcherQuery {
+	return &IntMatcherQuery{}
+}
+
+func (o *IntMatcherQuery) ID(value ...int64) *IntMatcherQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *IntMatcherQuery) Type(value ...string) *IntMatcherQuery {
+	o.types = append(o.types, value...)
+	return o
+}
+
+func (o *IntMatcherQuery) Int64(value ...int64) *IntMatcherQuery {
+	for _, v := range value {
+		o.values = append(o.values, &intMatcherValue{
+			sign:  signInt64(v),
+			value: absInt64(v),
+		})
+	}
+	return o
+}
+
+func (o *IntMatcherQuery) Int(value ...int) *IntMatcherQuery {
+	for _, v := range value {
+		o.Int64(int64(v))
+	}
+	return o
+}
+
+func (o *IntMatcherQuery) Uint64(value ...uint64) *IntMatcherQuery {
+	for _, v := range value {
+		o.values = append(o.values, &intMatcherValue{
+			sign:  signUint64(v),
+			value: v,
+		})
+	}
+	return o
+}
+
+func (o *IntMatcherQuery) Uint(value ...uint) *IntMatcherQuery {
+	for _, v := range value {
+		o.Uint64(uint64(v))
+	}
+	return o
+}
+
+func (o *IntMatcherQuery) Big(value ...*big.Int) *IntMatcherQuery {
+	for _, v := range value {
+		sign := v.Sign()
+		if !v.Abs(v).IsUint64() {
+			panic("big.Int does not fit inside uint64")
+		}
+
+		o.values = append(o.values, &intMatcherValue{
+			sign:  sign,
+			value: v.Uint64(),
+		})
+	}
+	return o
+}
+
+func (o *IntMatcherQuery) UpdateFromModel(value *model.IntMatcher) *IntMatcherQuery {
+	if value == nil {
+		return o
+	}
+
+	o.Type(value.Type)
+	for _, elem := range value.Values {
+		o.values = append(o.values, &intMatcherValue{
+			sign:  elem.Sign,
+			value: elem.Value,
+		})
+	}
+	return o
+}
+
+func (o *IntMatcherQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("type", o.types, false, query, dialect)
+}
+
+func (o *IntMatcherQuery) Run(ctx context.Context, db bun.IDB) ([]*model.IntMatcher, error) {
+	if len(o.values) != 0 {
+		if err := o.updateIdsFromSubquery(ctx, db, func(sq *bun.SelectQuery) {
+			sq.Table("int_matcher_elements").
+				Column("matcher_id")
+
+			updateQueryWithEntries(o.values, sq, db.Dialect())
+		}); err != nil {
+			return nil, fmt.Errorf("matcher entries: %w", err)
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreIDs()
+	return ret, err
+}
+
+func (o *IntMatcherQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.types) == 0 &&
+		len(o.values) == 0
+}
+
+type FloatMatcherQuery struct {
+	modelQuery
+
+	types  []string
+	values []float64
+}
+
+func NewFloatMatcherQuery() *FloatMatcherQuery {
+	return &FloatMatcherQuery{}
+}
+
+func (o *FloatMatcherQuery) ID(value ...int64) *FloatMatcherQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *FloatMatcherQuery) Type(value ...string) *FloatMatcherQuery {
+	o.types = append(o.types, value...)
+	return o
+}
+
+func (o *FloatMatcherQuery) Value(value ...float64) *FloatMatcherQuery {
+	o.values = append(o.values, value...)
+	return o
+}
+
+func (o *FloatMatcherQuery) UpdateFromModel(value *model.FloatMatcher) *FloatMatcherQuery {
+	if value == nil {
+		return o
+	}
+
+	o.Type(value.Type)
+	for _, elem := range value.Values {
+		o.values = append(o.values, elem.Value)
+	}
+	return o
+}
+
+func (o *FloatMatcherQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("type", o.types, false, query, dialect)
+}
+
+func (o *FloatMatcherQuery) Run(ctx context.Context, db bun.IDB) ([]*model.FloatMatcher, error) {
+	if len(o.values) != 0 {
+		if err := o.updateIdsFromSubquery(ctx, db, func(sq *bun.SelectQuery) {
+			sq.Table("float_matcher_elements").
+				Column("matcher_id")
+
+			addOrGroupWhereClause("value", o.values, false, sq, db.Dialect())
+		}); err != nil {
+			return nil, fmt.Errorf("matcher entries: %w", err)
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreIDs()
+	return ret, err
+}
+
+func (o *FloatMatcherQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.types) == 0 &&
+		len(o.values) == 0
+}
+
+type TextMatcherQuery struct {
+	modelQuery
+
+	types  []string
+	values []string
+}
+
+func NewTextMatcherQuery() *TextMatcherQuery {
+	return &TextMatcherQuery{}
+}
+
+func (o *TextMatcherQuery) ID(value ...int64) *TextMatcherQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *TextMatcherQuery) Type(value ...string) *TextMatcherQuery {
+	o.types = append(o.types, value...)
+	return o
+}
+
+func (o *TextMatcherQuery) Value(value ...string) *TextMatcherQuery {
+	o.values = append(o.values, value...)
+	return o
+}
+
+func (o *TextMatcherQuery) UpdateFromModel(value *model.TextMatcher) *TextMatcherQuery {
+	if value == nil {
+		return o
+	}
+
+	o.Type(value.Type)
+	for _, elem := range value.Values {
+		o.values = append(o.values, elem.Value)
+	}
+	return o
+}
+
+func (o *TextMatcherQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("type", o.types, false, query, dialect)
+}
+
+func (o *TextMatcherQuery) Run(ctx context.Context, db bun.IDB) ([]*model.TextMatcher, error) {
+	if len(o.values) != 0 {
+		if err := o.updateIdsFromSubquery(ctx, db, func(sq *bun.SelectQuery) {
+			sq.Table("text_matcher_elements").
+				Column("matcher_id")
+
+			addOrGroupWhereClause("value", o.values, false, sq, db.Dialect())
+		}); err != nil {
+			return nil, fmt.Errorf("matcher entries: %w", err)
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreIDs()
+	return ret, err
+}
+
+func (o *TextMatcherQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.types) == 0 &&
+		len(o.values) == 0
+}
+
+type BytesMatcherQuery struct {
+	modelQuery
+
+	types  []string
+	values [][]byte
+}
+
+func NewBytesMatcherQuery() *BytesMatcherQuery {
+	return &BytesMatcherQuery{}
+}
+
+func (o *BytesMatcherQuery) ID(value ...int64) *BytesMatcherQuery {
+	o.modelQuery.ID(value...)
+	return o
+}
+
+func (o *BytesMatcherQuery) Type(value ...string) *BytesMatcherQuery {
+	o.types = append(o.types, value...)
+	return o
+}
+
+func (o *BytesMatcherQuery) Value(value ...[]byte) *BytesMatcherQuery {
+	o.values = append(o.values, value...)
+	return o
+}
+
+func (o *BytesMatcherQuery) UpdateFromModel(value *model.BytesMatcher) *BytesMatcherQuery {
+	if value == nil {
+		return o
+	}
+
+	o.Type(value.Type)
+	for _, elem := range value.Values {
+		o.values = append(o.values, elem.Value)
+	}
+	return o
+}
+
+func (o *BytesMatcherQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect schema.Dialect) {
+	o.modelQuery.UpdateSelectQuery(query, dialect)
+	addOrGroupWhereClause("type", o.types, false, query, dialect)
+}
+
+func (o *BytesMatcherQuery) Run(ctx context.Context, db bun.IDB) ([]*model.BytesMatcher, error) {
+	if len(o.values) != 0 {
+		if err := o.updateIdsFromSubquery(ctx, db, func(sq *bun.SelectQuery) {
+			sq.Table("bytes_matcher_elements").
+				Column("matcher_id")
+
+			addOrGroupWhereClause("value", o.values, false, sq, db.Dialect())
+		}); err != nil {
+			return nil, fmt.Errorf("matcher entries: %w", err)
+		}
+	}
+
+	ret, err := runQuery(ctx, db, o)
+	o.restoreIDs()
+	return ret, err
+}
+
+func (o *BytesMatcherQuery) IsEmpty() bool {
+	return o.modelQuery.IsEmpty() &&
+		len(o.types) == 0 &&
+		len(o.values) == 0
+}
+
 type modelQuery struct {
 	ids []int64
 
@@ -4200,6 +4732,37 @@ func (o *modelQuery) restoreIDs() {
 	o.saved = false
 }
 
+func (o *modelQuery) updateIdsFromSubquery(
+	ctx context.Context,
+	db bun.IDB,
+	updater func(*bun.SelectQuery),
+) error {
+	ids, err := runGenericQuery[int64](ctx, db, updater)
+	if err != nil {
+		return err
+	}
+
+	if len(o.ids) != 0 {
+		matchedIDs := make([]int64, 0, len(ids))
+		for _, id := range ids {
+			if slices.Contains(o.ids, id) {
+				matchedIDs = append(matchedIDs, id)
+			}
+		}
+
+		if len(matchedIDs) == 0 {
+			return ErrNoMatch
+		}
+
+		ids = matchedIDs
+	}
+
+	o.saveIDs()
+	o.ids = ids
+
+	return nil
+}
+
 type ownedQuery struct {
 	ownerIDs   []int64
 	ownerTypes []string
@@ -4231,6 +4794,31 @@ func (o *ownedQuery) IsEmpty() bool {
 	return len(o.ownerIDs) == 0 &&
 		len(o.ownerTypes) == 0 &&
 		len(o.owners) == 0
+}
+
+type intMatcherValue struct {
+	sign  int
+	value uint64
+}
+
+func (o *intMatcherValue) UpdateQuery(whereFunc whereFunc, dialect schema.Dialect) {
+	whereFunc("sign = ? AND value = ?", o.sign, o.value)
+}
+
+// signInt64 returns -1 if n is negative, 1 if n is positive, and 0 if n is 0
+func signInt64(n int64) int {
+	return int((n >> 63) | int64(uint64(-n)>>63))
+}
+
+// signUint64 returns 1 if n is positive and 0 if n is 0
+func signUint64(n uint64) int {
+	return int((n | -n) >> 63)
+}
+
+// absInt64 returns the absolute value of the input
+func absInt64(n int64) uint64 {
+	mask := uint64(n >> 63)
+	return (uint64(n) ^ mask) - mask
 }
 
 type ManifestCommonQuery struct {
@@ -4790,6 +5378,26 @@ func runQuery[T model.Model](ctx context.Context, db bun.IDB, query Query[T]) ([
 	var ret []T
 	bunQuery := db.NewSelect().Model(&ret)
 	query.UpdateSelectQuery(bunQuery, db.Dialect())
+
+	if err := bunQuery.Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoMatch
+		}
+
+		return nil, err
+	}
+
+	if len(ret) == 0 {
+		return ret, ErrNoMatch
+	}
+
+	return ret, nil
+}
+
+func runGenericQuery[T any](ctx context.Context, db bun.IDB, selector func(*bun.SelectQuery)) ([]T, error) {
+	var ret []T
+	bunQuery := db.NewSelect().Model(&ret)
+	selector(bunQuery)
 
 	if err := bunQuery.Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

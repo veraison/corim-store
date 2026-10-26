@@ -918,39 +918,39 @@ func (o *Store) QueryConditionalEndorsementSeriesTriples(
 	return ret, nil
 }
 
-// QueryDomainDependencyTripleEntries returns a
-// []*model.DomainDependencyTripleEntry with entries matching the provided
-// query. If the query is nil or is empty, all DomainDependencyTripleEntry's in
+// QueryTrustDependencyTripleEntries returns a
+// []*model.TrustDependencyTripleEntry with entries matching the provided
+// query. If the query is nil or is empty, all TrustDependencyTripleEntry's in
 // the store will be returned.
-func (o *Store) QueryDomainDependencyTripleEntries(
-	query Query[*model.DomainDependencyTripleEntry],
-) ([]*model.DomainDependencyTripleEntry, error) {
+func (o *Store) QueryTrustDependencyTripleEntries(
+	query Query[*model.TrustDependencyTripleEntry],
+) ([]*model.TrustDependencyTripleEntry, error) {
 	if query == nil {
-		query = NewDomainDependencyTripleQuery()
+		query = NewTrustDependencyTripleQuery()
 	}
 
 	return query.Run(o.Ctx, o.DB)
 }
 
-// QueryDomainDependencyTripleModels returns a []*model.DomainDependencyTriple
+// QueryTrustDependencyTripleModels returns a []*model.TrustDependencyTriple
 // containing triples matching the provided query. If the query is nil or is
-// empty, all DomainDependencyTriple's in the store will be returned. Note:
+// empty, all TrustDependencyTriple's in the store will be returned. Note:
 // this will run additional queries to fully populate matching triples. For
 // queries expecting large results, it is recommended to, where possible, use
-// QueryDomainDependencyTripleEntries instead.
-func (o *Store) QueryDomainDependencyTripleModels(
-	query Query[*model.DomainDependencyTripleEntry],
-) ([]*model.DomainDependencyTriple, error) {
-	entries, err := o.QueryDomainDependencyTripleEntries(query)
+// QueryTrustDependencyTripleEntries instead.
+func (o *Store) QueryTrustDependencyTripleModels(
+	query Query[*model.TrustDependencyTripleEntry],
+) ([]*model.TrustDependencyTriple, error) {
+	entries, err := o.QueryTrustDependencyTripleEntries(query)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]*model.DomainDependencyTriple, len(entries))
+	ret := make([]*model.TrustDependencyTriple, len(entries))
 	for i, entry := range entries {
 		triple, err := entry.ToTriple(o.Ctx, o.DB)
 		if err != nil {
-			return nil, fmt.Errorf("domain dependency triple ID %d: %w",
+			return nil, fmt.Errorf("trust dependency triple ID %d: %w",
 				entry.TripleDbID, err)
 		}
 
@@ -960,21 +960,21 @@ func (o *Store) QueryDomainDependencyTripleModels(
 	return ret, nil
 }
 
-// QueryDomainDependencyTriples returns a []*comid.DomainDependencyTriples with
+// QueryTrustDependencyTriples returns a []*comid.TrustDependencyTriples with
 // triples matching provided query.
-func (o *Store) QueryDomainDependencyTriples(
-	query Query[*model.DomainDependencyTripleEntry],
-) ([]*comid.DomainDependencyTriple, error) {
-	models, err := o.QueryDomainDependencyTripleModels(query)
+func (o *Store) QueryTrustDependencyTriples(
+	query Query[*model.TrustDependencyTripleEntry],
+) ([]*comid.TrustDependencyTriple, error) {
+	models, err := o.QueryTrustDependencyTripleModels(query)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]*comid.DomainDependencyTriple, len(models))
+	ret := make([]*comid.TrustDependencyTriple, len(models))
 	for i, model := range models {
 		triple, err := model.ToCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("domain dependency triple with ID %d: %w",
+			return nil, fmt.Errorf("trust dependency triple with ID %d: %w",
 				model.ID, err)
 		}
 
@@ -1209,22 +1209,22 @@ func (o *Store) SetConditionalEndorsementSeriesTriplesActive(
 	return entries, nil
 }
 
-// SetDomainDependencyTriplesActive sets the active status of domain dependency
+// SetTrustDependencyTriplesActive sets the active status of trust dependency
 // triples matching the specified query to the specified value. On success a
 // slice of entries corresponding to the updated triples is returned. The
 // IsActive field of these entries is set to their old value prior to the
 // update.
-func (o *Store) SetDomainDependencyTriplesActive(
-	query Query[*model.DomainDependencyTripleEntry],
+func (o *Store) SetTrustDependencyTriplesActive(
+	query Query[*model.TrustDependencyTripleEntry],
 	value bool,
-) ([]*model.DomainDependencyTripleEntry, error) {
-	entries, err := o.QueryDomainDependencyTripleEntries(query)
+) ([]*model.TrustDependencyTripleEntry, error) {
+	entries, err := o.QueryTrustDependencyTripleEntries(query)
 	if err != nil {
 		return nil, err
 	}
 
 	_, err = o.DB.NewUpdate().
-		Table("domain_dependency_triples").
+		Table("trust_dependency_triples").
 		Set("is_active = ?", value).
 		WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
 			for _, entry := range entries {
