@@ -9,14 +9,14 @@ import (
 	"github.com/veraison/corim/comid"
 )
 
-func TestDomainDependencyTriple_round_trip(t *testing.T) { // nolint:dupl
+func TestTrustDependencyTriple_round_trip(t *testing.T) { // nolint:dupl
 	testCases := []struct {
 		title  string
-		triple comid.DomainDependencyTriple
+		triple comid.TrustDependencyTriple
 	}{
 		{
 			title: "ok",
-			triple: comid.DomainDependencyTriple{
+			triple: comid.TrustDependencyTriple{
 				DomainID: comid.Environment{
 					Instance: comid.MustNewUEIDInstance(comid.TestUEID),
 				},
@@ -35,13 +35,13 @@ func TestDomainDependencyTriple_round_trip(t *testing.T) { // nolint:dupl
 
 	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
-			cet, err := NewDomainDependencyTripleFromCoRIM(&tc.triple)
+			cet, err := NewTrustDependencyTripleFromCoRIM(&tc.triple)
 			assert.NoError(t, err)
 
 			err = cet.Insert(ctx, db)
 			require.NoError(t, err)
 
-			selectedTriple, err := SelectDomainDependencyTriple(ctx, db, cet.ID)
+			selectedTriple, err := SelectTrustDependencyTriple(ctx, db, cet.ID)
 			require.NoError(t, err)
 
 			selectedCorimTriple, err := selectedTriple.ToCoRIM()
@@ -52,17 +52,17 @@ func TestDomainDependencyTriple_round_trip(t *testing.T) { // nolint:dupl
 	}
 }
 
-func TestDomainDependencyTriple_Validate(t *testing.T) {
+func TestTrustDependencyTriple_Validate(t *testing.T) {
 	testType := comid.BytesType
 	testBytes := comid.MustHexDecode(t, "deadbeefdeadbeefdeadbeefdeadbeef")
 	testCases := []struct {
 		title string
-		ddt   DomainDependencyTriple
+		ddt   TrustDependencyTriple
 		err   string
 	}{
 		{
 			title: "ok",
-			ddt: DomainDependencyTriple{
+			ddt: TrustDependencyTriple{
 				DomainID: &Environment{
 					ClassType:  &testType,
 					ClassBytes: &testBytes,
@@ -79,12 +79,12 @@ func TestDomainDependencyTriple_Validate(t *testing.T) {
 		},
 		{
 			title: "domain ID not set",
-			ddt:   DomainDependencyTriple{},
+			ddt:   TrustDependencyTriple{},
 			err:   "domain ID not set",
 		},
 		{
 			title: "invalid domain ID",
-			ddt: DomainDependencyTriple{
+			ddt: TrustDependencyTriple{
 				DomainID: &Environment{
 					ClassBytes: &testBytes,
 				},
@@ -93,7 +93,7 @@ func TestDomainDependencyTriple_Validate(t *testing.T) {
 		},
 		{
 			title: "no trustees",
-			ddt: DomainDependencyTriple{
+			ddt: TrustDependencyTriple{
 				DomainID: &Environment{
 					ClassType:  &testType,
 					ClassBytes: &testBytes,
@@ -103,7 +103,7 @@ func TestDomainDependencyTriple_Validate(t *testing.T) {
 		},
 		{
 			title: "invalid trustee",
-			ddt: DomainDependencyTriple{
+			ddt: TrustDependencyTriple{
 				DomainID: &Environment{
 					ClassType:  &testType,
 					ClassBytes: &testBytes,
@@ -132,14 +132,14 @@ func TestDomainDependencyTriple_Validate(t *testing.T) {
 	}
 }
 
-func TestDomainDependencyTriple_Delete(t *testing.T) {
-	var ddt DomainDependencyTriple
+func TestTrustDependencyTriple_Delete(t *testing.T) {
+	var ddt TrustDependencyTriple
 	db := NewTestDB(t)
 
 	err := ddt.Delete(context.Background(), db)
 	assert.ErrorContains(t, err, "ID not set")
 
-	ddt = DomainDependencyTriple{
+	ddt = TrustDependencyTriple{
 		ID:       1,
 		DomainID: &Environment{ID: 1},
 		Trustees: []*DomainEntry{{ID: 1}},
@@ -148,10 +148,10 @@ func TestDomainDependencyTriple_Delete(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestDomainDependencyTriple_model_methods(t *testing.T) {
-	triple := DomainDependencyTriple{ID: 1}
+func TestTrustDependencyTriple_model_methods(t *testing.T) {
+	triple := TrustDependencyTriple{ID: 1}
 	assert.Equal(t, triple.ID, triple.DbID())
-	assert.Equal(t, "domain_dependency_triples", triple.TableName())
+	assert.Equal(t, "trust_dependency_triples", triple.TableName())
 	assert.True(t, triple.IsTable())
 	assert.Equal(t, triple.ModuleID, triple.OwnerDbID())
 	assert.Equal(t, "module_tag", triple.OwnerName())

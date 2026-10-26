@@ -1,0 +1,111 @@
+- model: IntMatcher
+  rows:
+    - id: 1
+      type: unit
+    - id: 2
+      type: set
+    - id: 3
+      type: range
+    - id: 4
+      type: lower-bound
+    - id: 5
+      type: upper-bound
+- model: IntMatcherElement
+  rows:
+    - id: 1
+      sign: 1
+      value: 1
+      matcher_id: 1
+    - id: 2
+      sign: -1
+      value: 1
+      matcher_id: 2
+    - id: 3
+      sign: 1
+      value: 1
+      matcher_id: 2
+    - id: 4
+      sign: -1
+      value: 2
+      matcher_id: 3
+    - id: 5
+      sign: 1
+      value: 2
+      matcher_id: 3
+    - id: 6
+      sign: -1
+      value: 2
+      matcher_id: 4
+    - id: 7
+      sign: 1
+      value: 2
+      matcher_id: 5
+- model: FloatMatcher
+  rows:
+    - id: 1
+      type: unit
+    - id: 2
+      type: set
+    - id: 3
+      type: range
+    - id: 4
+      type: lower-bound
+    - id: 5
+      type: upper-bound
+- model: FloatMatcherElement
+  rows:
+    - id: 1
+      value: 1.0
+      matcher_id: 1
+    - id: 2
+      value: -1.0
+      matcher_id: 2
+    - id: 3
+      value: 1.0
+      matcher_id: 2
+    - id: 4
+      value: -2.0
+      matcher_id: 3
+    - id: 5
+      value: 2.0
+      matcher_id: 3
+    - id: 6
+      value: -2.0
+      matcher_id: 4
+    - id: 7
+      value: 2.0
+      matcher_id: 5
+- model: TextMatcher
+  rows:
+    - id: 1
+      type: unit
+    - id: 2
+      type: set
+- model: TextMatcherElement
+  rows:
+    - id: 1
+      value: "foo"
+      matcher_id: 1
+    - id: 2
+      value: "foo"
+      matcher_id: 2
+    - id: 3
+      value: "bar"
+      matcher_id: 2
+- model: BytesMatcher
+  rows:
+    - id: 1
+      type: unit
+    - id: 2
+      type: set
+- model: BytesMatcherElement
+  rows:
+    - id: 1
+      value: [0xde, 0xad, 0xbe, 0xef]
+      matcher_id: 1
+    - id: 2
+      value: [0xde, 0xad, 0xbe, 0xef]
+      matcher_id: 2
+    - id: 3
+      value: [0xc0, 0xde, 0xca, 0xfe]
+      matcher_id: 2

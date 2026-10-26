@@ -21,7 +21,7 @@ func TestConditionalEndorsementSeriesTriple_round_trip(t *testing.T) {
 		{
 			title: "ok",
 			triple: comid.CondEndorseSeriesTriple{
-				Condition: comid.CondEndorseSeriesCondition{
+				CommonCondition: comid.CondEndorseSeriesCondition{
 					Environment: comid.Environment{
 						Instance: comid.MustNewUEIDInstance(comid.TestUEID),
 					},
@@ -36,7 +36,7 @@ func TestConditionalEndorsementSeriesTriple_round_trip(t *testing.T) {
 					)),
 				},
 				Series: *comid.NewCondEndorseSeriesRecords().Add(&comid.CondEndorseSeriesRecord{
-					Selection: *comid.NewMeasurements().
+					Condition: *comid.NewMeasurements().
 						Add(&comid.Measurement{
 							Val: comid.Mval{
 								SVN: testSvn,
@@ -109,7 +109,7 @@ func TestConditionalEndorsementSeriesTriple_Validate(t *testing.T) {
 				},
 				Series: []*ConditionalEndorsementSeriesRecord{
 					{
-						Selection: []*Measurement{
+						Condition: []*Measurement{
 							{
 								Digests: []*Digest{
 									{
@@ -158,7 +158,7 @@ func TestConditionalEndorsementSeriesTriple_Validate(t *testing.T) {
 			err: "empty series",
 		},
 		{
-			title: "invalid series selection",
+			title: "invalid series condition",
 			cest: ConditionalEndorsementSeriesTriple{
 				Environment: &Environment{
 					ClassType:  util.Ptr("bytes"),
@@ -166,7 +166,7 @@ func TestConditionalEndorsementSeriesTriple_Validate(t *testing.T) {
 				},
 				Series: []*ConditionalEndorsementSeriesRecord{{}},
 			},
-			err: "series[0]: empty selection",
+			err: "series[0]: empty condition",
 		},
 		{
 			title: "invalid series additon",
@@ -176,7 +176,7 @@ func TestConditionalEndorsementSeriesTriple_Validate(t *testing.T) {
 					ClassBytes: &[]byte{0x01, 0x02, 0x03},
 				},
 				Series: []*ConditionalEndorsementSeriesRecord{{
-					Selection: []*Measurement{{}},
+					Condition: []*Measurement{{}},
 				}},
 			},
 			err: "series[0]: empty addition",

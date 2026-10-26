@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -384,6 +385,7 @@ func TestMeasurementQuery(t *testing.T) {
 		"integerity_registers.yaml": integrityRegistersFixture,
 		"measurement_values.yaml":   measurementValuesFixture,
 		"measurements.yaml":         measurementsFixture,
+		"matchers.yaml":             matchersFixture,
 	})
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -432,6 +434,54 @@ func TestMeasurementQuery(t *testing.T) {
 
 	query = NewMeasurementQuery().Flag(func(fq *FlagQuery) {
 		fq.CodePoint(1).Value(true)
+	})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().IntMatcherID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().Int(func(imq *IntMatcherQuery) {
+		imq.Int(1)
+	})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().FloatMatcherID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().Float(func(fmq *FloatMatcherQuery) {
+		fmq.Value(1.0)
+	})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().TextMatcherID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().Text(func(tmq *TextMatcherQuery) {
+		tmq.Value("foo")
+	})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().BytesMatcherID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().Bytes(func(tmq *BytesMatcherQuery) {
+		tmq.Value([]byte{0xde, 0xad, 0xbe, 0xef})
 	})
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
@@ -1359,7 +1409,7 @@ func TestDomainEntryQuery(t *testing.T) {
 	query = NewDomainEntryQuery().
 		ID(1, 2).
 		OwnerID(1).
-		OwnerType("domain_dependency_triple").
+		OwnerType("trust_dependency_triple").
 		ExactEnvironment(false).
 		EnvironmentID(8).
 		Environment(func(e *EnvironmentQuery) {
@@ -1372,7 +1422,7 @@ func TestDomainEntryQuery(t *testing.T) {
 	query = NewDomainEntryQuery().
 		ID(1, 2).
 		OwnerID(1).
-		OwnerType("domain_dependency_triple").
+		OwnerType("trust_dependency_triple").
 		ExactEnvironment(false).
 		EnvironmentID(8).
 		Environment(func(e *EnvironmentQuery) {
@@ -1399,7 +1449,7 @@ func TestDomainEntryQuery(t *testing.T) {
 	assert.ErrorContains(t, err, "environment: no match found")
 }
 
-func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
+func TestTrustDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	ctx := context.Background()
 	db := model.NewTestDBWithFixtures(t, map[string][]byte{
 		"environments.yaml": environmentsFixture,
@@ -1409,7 +1459,7 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	})
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	query := NewDomainDependencyTripleQuery()
+	query := NewTrustDependencyTripleQuery()
 	assert.True(t, query.IsEmpty())
 
 	result, err := query.Run(ctx, db)
@@ -1422,7 +1472,7 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 
 	bytes0 := comid.MustHexDecode(t, "3031323334353637303132333435363730313233343536373031323334353637")
 
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		TripleDbID(1).
 		ManifestDbID(1).
 		ModuleTagDbID(1).
@@ -1451,7 +1501,7 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		ManifestID(model.StringTagID, "foo").
 		ModuleTagID(model.StringTagID, "foo").
 		ModuleTagVersion(7).
@@ -1470,7 +1520,7 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	profile, err := eat.NewProfile("http://example.com")
 	assert.NoError(t, err)
 
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		ProfileFromEAT(profile).
 		ValidOn(time.Date(2027, time.January, 01, 00, 00, 00, 00, time.UTC))
 
@@ -1478,7 +1528,7 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		TrusteeExactEnvironment(false).
 		TrusteeEnvironmentID(8).
 		TrusteeEnvironment(func(e *EnvironmentQuery) {
@@ -1489,7 +1539,7 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
 
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		EntryExactEnvironment(false).
 		EntryEnvironmentID(8).
 		EntryEnvironment(func(e *EnvironmentQuery) {
@@ -1499,14 +1549,14 @@ func TestDomainDependencyTripleQuery(t *testing.T) { // nolint:dupl
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		DomainID(func(e *EnvironmentQuery) {
 			e.ClassIDType("doesnotexist")
 		})
 	_, err = query.Run(ctx, db)
 	assert.ErrorContains(t, err, "domain ID: no match found")
 
-	query = NewDomainDependencyTripleQuery().
+	query = NewTrustDependencyTripleQuery().
 		TrusteeEnvironmentID(9999)
 	_, err = query.Run(ctx, db)
 	assert.ErrorContains(t, err, "entries: no match found")
@@ -1956,4 +2006,150 @@ func TestConditionalEndorsementSeriesTripleQuery(t *testing.T) {
 		})
 	_, err = query.Run(ctx, db)
 	assert.ErrorContains(t, err, "records: no match found")
+}
+
+func TestIntMatcherQuery(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"matchers.yaml": matchersFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	query := NewIntMatcherQuery()
+	assert.True(t, query.IsEmpty())
+
+	result, err := query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 5)
+
+	query = NewIntMatcherQuery().ID(1, 2)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	query = NewIntMatcherQuery().ID(1, 3).Int(-2)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewIntMatcherQuery().ID(1, 3, 5).Big(new(big.Int).SetInt64(2))
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	query = NewIntMatcherQuery().ID(1, 3).Uint(2, 3)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewIntMatcherQuery().Type(comid.UnitType)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewIntMatcherQuery().ID(2).Uint(2, 3)
+	_, err = query.Run(ctx, db)
+	assert.ErrorIs(t, err, ErrNoMatch)
+}
+
+func TestFloatMatcherQuery(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"matchers.yaml": matchersFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	query := NewFloatMatcherQuery()
+	assert.True(t, query.IsEmpty())
+
+	result, err := query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 5)
+
+	query = NewFloatMatcherQuery().ID(1, 2)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	query = NewFloatMatcherQuery().ID(1, 3).Value(-2)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewFloatMatcherQuery().Type(comid.UnitType)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewFloatMatcherQuery().ID(2).Value(2, 3)
+	_, err = query.Run(ctx, db)
+	assert.ErrorIs(t, err, ErrNoMatch)
+}
+
+func TestTextMatcherQuery(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"matchers.yaml": matchersFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	query := NewTextMatcherQuery()
+	assert.True(t, query.IsEmpty())
+
+	result, err := query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	query = NewTextMatcherQuery().ID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewTextMatcherQuery().ID(1, 3).Value("foo")
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewTextMatcherQuery().Type(comid.UnitType)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewTextMatcherQuery().Value("baz")
+	_, err = query.Run(ctx, db)
+	assert.ErrorIs(t, err, ErrNoMatch)
+}
+
+func TestBytesMatcherQuery(t *testing.T) {
+	ctx := context.Background()
+	db := model.NewTestDBWithFixtures(t, map[string][]byte{
+		"matchers.yaml": matchersFixture,
+	})
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	query := NewBytesMatcherQuery()
+	assert.True(t, query.IsEmpty())
+
+	result, err := query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	query = NewBytesMatcherQuery().ID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewBytesMatcherQuery().ID(1, 3).Value([]byte{0xde, 0xad, 0xbe, 0xef})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewBytesMatcherQuery().Type(comid.UnitType)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewBytesMatcherQuery().Value([]byte("baz"))
+	_, err = query.Run(ctx, db)
+	assert.ErrorIs(t, err, ErrNoMatch)
 }

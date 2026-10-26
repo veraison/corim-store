@@ -54,4 +54,7 @@ var (
 
 	//go:embed  fixtures/tokens.yaml
 	tokensFixture []byte
+
+	//go:embed  fixtures/matchers.yaml
+	matchersFixture []byte
 )
