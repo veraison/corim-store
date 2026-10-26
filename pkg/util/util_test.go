@@ -1,7 +1,9 @@
 package util
 
 import (
+	"maps"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,4 +57,16 @@ func TestIsXXXCoRIM(t *testing.T) {
 	assert.True(t, IsUnsignedCoRIM(unsigned))
 	assert.False(t, IsSignedCoRIM([]byte{}))
 	assert.False(t, IsUnsignedCoRIM([]byte{}))
+}
+
+func TestEnumerate(t *testing.T) {
+	items := []string{"foo", "bar", "zap"}
+	expected := map[int]string{
+		0: "foo",
+		1: "bar",
+		2: "zap",
+	}
+
+	result := maps.Collect(Enumerate(slices.Values(items)))
+	assert.Equal(t, expected, result)
 }

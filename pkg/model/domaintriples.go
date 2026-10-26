@@ -363,18 +363,18 @@ func (o *DomainMembershipTriple) Delete(ctx context.Context, db bun.IDB) error {
 	return nil
 }
 
-func DomainDependencyTriplesFromCoRIM(origin *comid.DomainDependencyTriples) ([]*DomainDependencyTriple, error) {
+func TrustDependencyTriplesFromCoRIM(origin *comid.TrustDependencyTriples) ([]*TrustDependencyTriple, error) {
 	if origin == nil || len(*origin) == 0 {
 		return nil, nil
 	}
 
-	ret := make([]*DomainDependencyTriple, 0, len(*origin))
+	ret := make([]*TrustDependencyTriple, 0, len(*origin))
 
 	for i, originTriple := range *origin {
-		triple, err := NewDomainDependencyTripleFromCoRIM(&originTriple)
+		triple, err := NewTrustDependencyTripleFromCoRIM(&originTriple)
 		if err != nil {
 			// coverage:ignore
-			return nil, fmt.Errorf("domain dependency triple[%d]: %w", i, err)
+			return nil, fmt.Errorf("trust dependency triple[%d]: %w", i, err)
 		}
 
 		ret = append(ret, triple)
@@ -383,17 +383,17 @@ func DomainDependencyTriplesFromCoRIM(origin *comid.DomainDependencyTriples) ([]
 	return ret, nil
 }
 
-func DomainDependencyTriplesToCoRIM(origin []*DomainDependencyTriple) (*comid.DomainDependencyTriples, error) {
+func TrustDependencyTriplesToCoRIM(origin []*TrustDependencyTriple) (*comid.TrustDependencyTriples, error) {
 	if len(origin) == 0 {
 		return nil, nil
 	}
 
-	var ret comid.DomainDependencyTriples
+	var ret comid.TrustDependencyTriples
 
 	for i, originTriple := range origin {
 		triple, err := originTriple.ToCoRIM()
 		if err != nil {
-			return nil, fmt.Errorf("domain dependency triple[%d]: %w", i, err)
+			return nil, fmt.Errorf("trust dependency triple[%d]: %w", i, err)
 		}
 
 		ret = append(ret, *triple)
@@ -402,23 +402,23 @@ func DomainDependencyTriplesToCoRIM(origin []*DomainDependencyTriple) (*comid.Do
 	return &ret, nil
 }
 
-type DomainDependencyTriple struct {
-	bun.BaseModel `bun:"table:domain_dependency_triples,alias:ddt"`
+type TrustDependencyTriple struct {
+	bun.BaseModel `bun:"table:trust_dependency_triples,alias:tdt"`
 
 	ID int64 `bun:",pk,autoincrement"`
 
 	EnvironmentID int64        `bun:",nullzero"`
 	DomainID      *Environment `bun:"rel:belongs-to,join:environment_id=id"`
 
-	Trustees []*DomainEntry `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:domain_dependency_triple"`
+	Trustees []*DomainEntry `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:trust_dependency_triple"`
 
 	IsActive bool
 
 	ModuleID int64 `bun:",nullzero"`
 }
 
-func NewDomainDependencyTripleFromCoRIM(origin *comid.DomainDependencyTriple) (*DomainDependencyTriple, error) {
-	var ret DomainDependencyTriple
+func NewTrustDependencyTripleFromCoRIM(origin *comid.TrustDependencyTriple) (*TrustDependencyTriple, error) {
+	var ret TrustDependencyTriple
 
 	if err := ret.FromCoRIM(origin); err != nil {
 		// coverage:ignore
@@ -428,8 +428,8 @@ func NewDomainDependencyTripleFromCoRIM(origin *comid.DomainDependencyTriple) (*
 	return &ret, nil
 }
 
-func SelectDomainDependencyTriple(ctx context.Context, db bun.IDB, id int64) (*DomainDependencyTriple, error) {
-	ret := DomainDependencyTriple{ID: id}
+func SelectTrustDependencyTriple(ctx context.Context, db bun.IDB, id int64) (*TrustDependencyTriple, error) {
+	ret := TrustDependencyTriple{ID: id}
 
 	if err := ret.Select(ctx, db); err != nil {
 		return nil, err
@@ -438,27 +438,27 @@ func SelectDomainDependencyTriple(ctx context.Context, db bun.IDB, id int64) (*D
 	return &ret, nil
 }
 
-func (o *DomainDependencyTriple) DbID() int64 {
+func (o *TrustDependencyTriple) DbID() int64 {
 	return o.ID
 }
 
-func (o *DomainDependencyTriple) TableName() string {
-	return "domain_dependency_triples"
+func (o *TrustDependencyTriple) TableName() string {
+	return "trust_dependency_triples"
 }
 
-func (o *DomainDependencyTriple) IsTable() bool {
+func (o *TrustDependencyTriple) IsTable() bool {
 	return true
 }
 
-func (o *DomainDependencyTriple) OwnerDbID() int64 {
+func (o *TrustDependencyTriple) OwnerDbID() int64 {
 	return o.ModuleID
 }
 
-func (o DomainDependencyTriple) OwnerName() string {
+func (o TrustDependencyTriple) OwnerName() string {
 	return "module_tag"
 }
 
-func (o *DomainDependencyTriple) FromCoRIM(origin *comid.DomainDependencyTriple) error {
+func (o *TrustDependencyTriple) FromCoRIM(origin *comid.TrustDependencyTriple) error {
 	env, err := NewEnvironmentFromCoRIM(&origin.DomainID)
 	if err != nil {
 		// coverage:ignore
@@ -477,8 +477,8 @@ func (o *DomainDependencyTriple) FromCoRIM(origin *comid.DomainDependencyTriple)
 	return nil
 }
 
-func (o *DomainDependencyTriple) ToCoRIM() (*comid.DomainDependencyTriple, error) {
-	var ret comid.DomainDependencyTriple
+func (o *TrustDependencyTriple) ToCoRIM() (*comid.TrustDependencyTriple, error) {
+	var ret comid.TrustDependencyTriple
 
 	env, err := o.DomainID.ToCoRIM()
 	if err != nil {
@@ -496,7 +496,7 @@ func (o *DomainDependencyTriple) ToCoRIM() (*comid.DomainDependencyTriple, error
 	return &ret, nil
 }
 
-func (o *DomainDependencyTriple) Validate() error {
+func (o *TrustDependencyTriple) Validate() error {
 	if o.DomainID == nil {
 		return errors.New("domain ID not set")
 	}
@@ -518,7 +518,7 @@ func (o *DomainDependencyTriple) Validate() error {
 	return nil
 }
 
-func (o *DomainDependencyTriple) Insert(ctx context.Context, db bun.IDB) error {
+func (o *TrustDependencyTriple) Insert(ctx context.Context, db bun.IDB) error {
 	if err := o.Validate(); err != nil {
 		return err
 	}
@@ -536,7 +536,7 @@ func (o *DomainDependencyTriple) Insert(ctx context.Context, db bun.IDB) error {
 
 	for i, entry := range o.Trustees {
 		entry.OwnerID = o.ID
-		entry.OwnerType = "domain_dependency_triple"
+		entry.OwnerType = "trust_dependency_triple"
 
 		if err := entry.Insert(ctx, db); err != nil {
 			// coverage:ignore
@@ -547,7 +547,7 @@ func (o *DomainDependencyTriple) Insert(ctx context.Context, db bun.IDB) error {
 	return nil
 }
 
-func (o *DomainDependencyTriple) Select(ctx context.Context, db bun.IDB) error {
+func (o *TrustDependencyTriple) Select(ctx context.Context, db bun.IDB) error {
 	if o.ID == 0 {
 		return errors.New("ID not set")
 	}
@@ -556,7 +556,7 @@ func (o *DomainDependencyTriple) Select(ctx context.Context, db bun.IDB) error {
 		Model(o).
 		Relation("DomainID").
 		Relation("Trustees").
-		Where("ddt.id = ?", o.ID).
+		Where("tdt.id = ?", o.ID).
 		Scan(ctx)
 
 	if err != nil {
@@ -573,7 +573,7 @@ func (o *DomainDependencyTriple) Select(ctx context.Context, db bun.IDB) error {
 	return nil
 }
 
-func (o *DomainDependencyTriple) Delete(ctx context.Context, db bun.IDB) error {
+func (o *TrustDependencyTriple) Delete(ctx context.Context, db bun.IDB) error {
 	if o.ID == 0 {
 		return errors.New("ID not set")
 	}
@@ -602,7 +602,7 @@ func (o *DomainDependencyTriple) Delete(ctx context.Context, db bun.IDB) error {
 func init() {
 	environmentOwners = append(environmentOwners,
 		"domain_entries",
-		"domain_dependency_triples",
+		"trust_dependency_triples",
 		"domain_membership_triples",
 	)
 }

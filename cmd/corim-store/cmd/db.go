@@ -261,7 +261,7 @@ var tableSelectors = []string{
 	"conditional-endorsement-triples",
 	"crypto-keys",
 	"digests",
-	"domain-dependency-triples",
+	"trust-dependency-triples",
 	"domain-entries",
 	"domain-membership-triples",
 	"entities",
@@ -373,8 +373,8 @@ func selectModels(pflags *pflag.FlagSet, db bun.IDB, ctx context.Context) ([]any
 		ret = append(ret, selected)
 	}
 
-	if all && !flags["no-domain-dependency-triples"] || flags["domain-dependency-triples"] {
-		selected, err := selectModel[model.DomainDependencyTriple](db, ctx)
+	if all && !flags["no-trust-dependency-triples"] || flags["trust-dependency-triples"] {
+		selected, err := selectModel[model.TrustDependencyTriple](db, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error selecting domain dependency triples: %w", err)
 		}

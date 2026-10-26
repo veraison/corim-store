@@ -36,7 +36,11 @@ func TestMeasurement_round_trip(t *testing.T) {
 		SetUEID(comid.TestUEID).
 		SetUUID(comid.TestUUID).
 		SetName("bar").
-		AddCryptoKey(comid.MustNewCryptoKey(testBytes, comid.BytesType))
+		AddCryptoKey(comid.MustNewCryptoKey(testBytes, comid.BytesType)).
+		SetBool(true).
+		SetNumber(comid.NewNumberMatcher(comid.NumberFromFloat64(1.0))).
+		SetText(comid.NewTextMatcher("foo")).
+		SetBytes(comid.NewBytesMatcher(testBytes))
 
 	digests := comid.NewDigests().AddDigest(comid.Sha256, testBytes)
 	regs := comid.NewIntegrityRegisters()
@@ -73,6 +77,10 @@ func TestMeasurement_round_trip(t *testing.T) {
 	assert.Equal(t, comid.TestUEID, *selectedMeas.Val.UEID)
 	assert.Equal(t, comid.TestUUID, *selectedMeas.Val.UUID)
 	assert.Equal(t, "bar", *selectedMeas.Val.Name)
+	assert.Equal(t, true, *selectedMeas.Val.Bool)
+	assert.Equal(t, comid.NumberFromFloat64(1.0), selectedMeas.Val.Number.Variant().UnitValue())
+	assert.Equal(t, "foo", selectedMeas.Val.Text.Variant().UnitValue())
+	assert.Equal(t, testBytes, selectedMeas.Val.Bytes.Variant().UnitValue())
 
 	rawValBytes := selectedMeas.Val.RawValue.Bytes()
 	assert.Equal(t, testBytes, rawValBytes)
@@ -84,6 +92,25 @@ func TestMeasurement_round_trip(t *testing.T) {
 	assert.Equal(t, testBytes, (*selectedMeas.Val.CryptoKeys)[0].Value.Bytes())
 	assert.NotNil(t, selectedMeas.AuthorizedBy)
 	assert.Equal(t, comid.TestECPubKey, (*selectedMeas.AuthorizedBy)[0].Value.String())
+
+	meas, err = comid.NewUUIDMeasurement(comid.TestUUID)
+	require.NoError(t, err)
+	meas = meas.SetNumber(comid.NewNumberMatcher(comid.NumberFromInt(1)))
+
+	model = Measurement{}
+	err = model.FromCoRIM(meas)
+	assert.NoError(t, err)
+
+	err = model.Insert(ctx, db)
+	assert.NoError(t, err)
+
+	selectedModel, err = SelectMeasurement(ctx, db, model.ID)
+	assert.NoError(t, err)
+
+	selectedMeas, err = selectedModel.ToCoRIM()
+	assert.NoError(t, err)
+
+	assert.Equal(t, comid.NumberFromInt(1), selectedMeas.Val.Number.Variant().UnitValue())
 }
 
 func newBoolMkey(val any) (*comid.Mkey, error) {
@@ -304,6 +331,11 @@ func TestMeasurement_Delete(t *testing.T) {
 				Flags:              []*Flag{{ID: 1}},
 				IntegrityRegisters: []*IntegrityRegister{{ID: 1}},
 				ValueEntries:       []*MeasurementValueEntry{{ID: 1}},
+				CryptoKeys:         []*CryptoKey{{ID: 1}},
+				IntMatcher:         &IntMatcher{ID: 1},
+				FloatMatcher:       &FloatMatcher{ID: 1},
+				TextMatcher:        &TextMatcher{ID: 1},
+				BytesMatcher:       &BytesMatcher{ID: 1},
 				Extensions:         []*ExtensionValue{{ID: 1}},
 			},
 		},

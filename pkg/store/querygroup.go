@@ -208,13 +208,13 @@ func NewConditionalEndorsementSeriesTripleQueryGroup() *ConditionalEndorsementSe
 	]()
 }
 
-type DomainDependencyTripleQueryGroup = QueryGroup[
-	*model.DomainDependencyTripleEntry,
-	*DomainDependencyTripleQuery,
+type TrustDependencyTripleQueryGroup = QueryGroup[
+	*model.TrustDependencyTripleEntry,
+	*TrustDependencyTripleQuery,
 ]
 
-func NewDomainDependencyTripleQueryGroup() *DomainDependencyTripleQueryGroup {
-	return NewQueryGroup[*model.DomainDependencyTripleEntry, *DomainDependencyTripleQuery]()
+func NewTrustDependencyTripleQueryGroup() *TrustDependencyTripleQueryGroup {
+	return NewQueryGroup[*model.TrustDependencyTripleEntry, *TrustDependencyTripleQuery]()
 }
 
 type DomainMembershipTripleQueryGroup = QueryGroup[
