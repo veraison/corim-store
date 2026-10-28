@@ -326,7 +326,7 @@ func TestCryptoKeyQuery(t *testing.T) {
 
 	result, err := query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 4)
+	assert.Len(t, result, 6)
 
 	query = NewCryptoKeyQuery().ID(1, 2)
 	result, err = query.Run(ctx, db)
@@ -336,23 +336,23 @@ func TestCryptoKeyQuery(t *testing.T) {
 	query = NewCryptoKeyQuery().KeyType("bytes")
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 2)
+	assert.Len(t, result, 4)
 	assert.Equal(t, bytes, result[0].KeyBytes)
 
 	query = NewCryptoKeyQuery().KeyBytes(bytes)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewCryptoKeyQuery().Key("bytes", bytes)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewCryptoKeyQuery().KeyFromModel(result[0])
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 2)
 
 	query = NewCryptoKeyQuery().OwnerType("key_triple_auth")
 	result, err = query.Run(ctx, db)
@@ -362,7 +362,7 @@ func TestCryptoKeyQuery(t *testing.T) {
 	query = NewCryptoKeyQuery().OwnerID(1)
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
-	assert.Len(t, result, 4)
+	assert.Len(t, result, 6)
 
 	query = NewCryptoKeyQuery().Owner("key_triple_auth", 1)
 	result, err = query.Run(ctx, db)
@@ -483,6 +483,57 @@ func TestMeasurementQuery(t *testing.T) {
 	query = NewMeasurementQuery().Bytes(func(tmq *BytesMatcherQuery) {
 		tmq.Value([]byte{0xde, 0xad, 0xbe, 0xef})
 	})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().BytesMatcherID(1)
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().
+		CryptoKeysType("bytes").
+		CryptoKeysBytes([]byte{
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().
+		CryptoKeys("bytes", []byte{
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().
+		AuthorizedByType("bytes").
+		AuthorizedByBytes([]byte{
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		})
+	result, err = query.Run(ctx, db)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	query = NewMeasurementQuery().
+		AuthorizedBy("bytes", []byte{
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		})
 	result, err = query.Run(ctx, db)
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)

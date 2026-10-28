@@ -14,12 +14,12 @@ func TestIntMatcher_round_trip(t *testing.T) { // nolint:dupl
 	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	testCases := []struct{
-		title string
+	testCases := []struct {
+		title   string
 		matcher *comid.NumberMatcher
 	}{
 		{
-			title: "unit",
+			title:   "unit",
 			matcher: comid.NewNumberMatcher(comid.NumberFromInt(1)),
 		},
 		{
@@ -37,15 +37,14 @@ func TestIntMatcher_round_trip(t *testing.T) { // nolint:dupl
 			),
 		},
 		{
-			title: "lower bound",
+			title:   "lower bound",
 			matcher: comid.NewNumberLowerBound(comid.NumberFromInt(1)),
 		},
 		{
-			title: "upper bound",
+			title:   "upper bound",
 			matcher: comid.NewNumberUpperBound(comid.NumberFromInt(2)),
 		},
 	}
-
 
 	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
@@ -124,12 +123,12 @@ func TestFloatMatcher_round_trip(t *testing.T) { // nolint:dupl
 	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	testCases := []struct{
-		title string
+	testCases := []struct {
+		title   string
 		matcher *comid.NumberMatcher
 	}{
 		{
-			title: "unit",
+			title:   "unit",
 			matcher: comid.NewNumberMatcher(comid.NumberFromFloat64(1.5)),
 		},
 		{
@@ -147,15 +146,14 @@ func TestFloatMatcher_round_trip(t *testing.T) { // nolint:dupl
 			),
 		},
 		{
-			title: "lower bound",
+			title:   "lower bound",
 			matcher: comid.NewNumberLowerBound(comid.NumberFromFloat64(1.5)),
 		},
 		{
-			title: "upper bound",
+			title:   "upper bound",
 			matcher: comid.NewNumberUpperBound(comid.NumberFromFloat64(2.5)),
 		},
 	}
-
 
 	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
@@ -234,20 +232,19 @@ func TestTextMatcher_round_trip(t *testing.T) {
 	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	testCases := []struct{
-		title string
+	testCases := []struct {
+		title   string
 		matcher *comid.TextMatcher
 	}{
 		{
-			title: "unit",
+			title:   "unit",
 			matcher: comid.NewTextMatcher("foo"),
 		},
 		{
-			title: "set",
+			title:   "set",
 			matcher: comid.NewTextMatcher("foo", "bar"),
 		},
 	}
-
 
 	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
@@ -326,12 +323,12 @@ func TestBytesMatcher_round_trip(t *testing.T) {
 	db := NewTestDB(t)
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	testCases := []struct{
-		title string
+	testCases := []struct {
+		title   string
 		matcher *comid.BytesMatcher
 	}{
 		{
-			title: "unit",
+			title:   "unit",
 			matcher: comid.NewBytesMatcher([]byte{0xde, 0xad, 0xbe, 0xef}),
 		},
 		{
@@ -342,7 +339,6 @@ func TestBytesMatcher_round_trip(t *testing.T) {
 			),
 		},
 	}
-
 
 	for _, tc := range testCases {
 		t.Run(tc.title, func(t *testing.T) {
