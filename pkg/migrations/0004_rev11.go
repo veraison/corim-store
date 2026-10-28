@@ -41,8 +41,8 @@ const DROP_TRUST_DEPENDENCY_TRIPLE_VIEW_SQL = `DROP VIEW trust_dependency_triple
 type intMatcher_v1 struct {
 	bun.BaseModel `bun:"table:int_matchers,alias:im"`
 
-	ID     int64 `bun:",pk,autoincrement"`
-	Type   string
+	ID   int64 `bun:",pk,autoincrement"`
+	Type string
 }
 
 type intMatcherElement_v1 struct {
@@ -57,8 +57,8 @@ type intMatcherElement_v1 struct {
 type floatMatcher_v1 struct {
 	bun.BaseModel `bun:"table:float_matchers,alias:fm"`
 
-	ID     int64 `bun:",pk,autoincrement"`
-	Type   string
+	ID   int64 `bun:",pk,autoincrement"`
+	Type string
 }
 
 type floatMatcherElement_v1 struct {
@@ -72,8 +72,8 @@ type floatMatcherElement_v1 struct {
 type textMatcher_v1 struct {
 	bun.BaseModel `bun:"table:text_matchers,alias:tm"`
 
-	ID     int64 `bun:",pk,autoincrement"`
-	Type   string
+	ID   int64 `bun:",pk,autoincrement"`
+	Type string
 }
 
 type textMatcherElement_v1 struct {
@@ -87,8 +87,8 @@ type textMatcherElement_v1 struct {
 type bytesMatcher_v1 struct {
 	bun.BaseModel `bun:"table:bytes_matchers,alias:bm"`
 
-	ID     int64 `bun:",pk,autoincrement"`
-	Type   string
+	ID   int64 `bun:",pk,autoincrement"`
+	Type string
 }
 
 type bytesMatcherElement_v1 struct {
