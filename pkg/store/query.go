@@ -3761,6 +3761,7 @@ type MeasurementQuery struct {
 	textMatcherIDs  []int64
 	bytesMatcherIDs []int64
 
+	cryptoKeysQuery        *CryptoKeyQuery
 	authByQuery            *CryptoKeyQuery
 	mvalQuery              *MeasurementValueQuery
 	digestQuery            *DigestQuery
@@ -3814,6 +3815,34 @@ func (o *MeasurementQuery) MkeyBytes(value ...[]byte) *MeasurementQuery {
 
 func (o *MeasurementQuery) Mkey(typ string, value []byte) *MeasurementQuery {
 	o.mkeys = append(o.mkeys, &keyQueryEntry{typ, value})
+	return o
+}
+
+func (o *MeasurementQuery) CryptoKeysSubquery() *CryptoKeyQuery {
+	if o.cryptoKeysQuery == nil {
+		o.cryptoKeysQuery = NewCryptoKeyQuery()
+	}
+
+	return o.cryptoKeysQuery
+}
+
+func (o *MeasurementQuery) CryptoKeysType(value ...string) *MeasurementQuery {
+	o.CryptoKeysSubquery().KeyType(value...)
+	return o
+}
+
+func (o *MeasurementQuery) CryptoKeysBytes(value ...[]byte) *MeasurementQuery {
+	o.CryptoKeysSubquery().KeyBytes(value...)
+	return o
+}
+
+func (o *MeasurementQuery) CryptoKeys(typ string, value []byte) *MeasurementQuery {
+	o.CryptoKeysSubquery().Key(typ, value)
+	return o
+}
+
+func (o *MeasurementQuery) CryptoKeysFromModel(value ...*model.CryptoKey) *MeasurementQuery {
+	o.CryptoKeysSubquery().KeyFromModel(value...)
 	return o
 }
 
@@ -4039,11 +4068,35 @@ func (o *MeasurementQuery) UpdateSelectQuery(query *bun.SelectQuery, dialect sch
 }
 
 func (o *MeasurementQuery) Run(ctx context.Context, db bun.IDB) ([]*model.Measurement, error) {
+	if !o.CryptoKeysSubquery().IsEmpty() {
+		o.saveIDs()
+
+		cks, err := o.CryptoKeysSubquery().
+			OwnerType("measurement").
+			OwnerID(o.ids...).
+			Run(ctx, db)
+
+		// reset so that it doesn't affect the IsEmpty() test if
+		// the query is repeated.
+		o.CryptoKeysSubquery().ownerTypes = nil
+		o.CryptoKeysSubquery().ownerIDs = nil
+
+		if err != nil {
+			o.restoreIDs()
+			return nil, fmt.Errorf("cryptokeys: %w", err)
+		}
+
+		o.ids = make([]int64, len(cks))
+		for i, ck := range cks {
+			o.ids[i] = ck.OwnerID
+		}
+	}
+
 	if !o.AuthorizedBySubquery().IsEmpty() {
 		o.saveIDs()
 
 		cks, err := o.AuthorizedBySubquery().
-			OwnerType("measurement").
+			OwnerType("measurement_auth").
 			OwnerID(o.ids...).
 			Run(ctx, db)
 
