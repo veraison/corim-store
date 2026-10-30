@@ -30,6 +30,10 @@ const (
 	MvalCryptoKeys         int64 = 13
 	MvalIntegrityRegisters int64 = 14
 	MvalIntRange           int64 = 15
+	MvalBool               int64 = 16
+	MvalNumber             int64 = 17
+	MvalText               int64 = 18
+	MvalBytes              int64 = 19
 )
 
 type MeasurementValueEntry struct {
@@ -139,6 +143,15 @@ type Measurement struct {
 	Flags              []*Flag                  `bun:"rel:has-many,join:id=measurement_id"`
 	IntegrityRegisters []*IntegrityRegister     `bun:"rel:has-many,join:id=measurement_id"`
 	Extensions         []*ExtensionValue        `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement"`
+
+	IntMatcherID   int64         `bun:",nullzero"`
+	IntMatcher     *IntMatcher   `bun:"rel:belongs-to,join:int_matcher_id=id"`
+	FloatMatcherID int64         `bun:",nullzero"`
+	FloatMatcher   *FloatMatcher `bun:"rel:belongs-to,join:float_matcher_id=id"`
+	TextMatcherID  int64         `bun:",nullzero"`
+	TextMatcher    *TextMatcher  `bun:"rel:belongs-to,join:float_matcher_id=id"`
+	BytesMatcherID int64         `bun:",nullzero"`
+	BytesMatcher   *BytesMatcher `bun:"rel:belongs-to,join:float_matcher_id=id"`
 
 	CryptoKeys   []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement"`
 	AuthorizedBy []*CryptoKey `bun:"rel:has-many,join:id=owner_id,join:type=owner_type,polymorphic:measurement_auth"`
@@ -329,6 +342,50 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 		})
 	}
 
+	if origin.Val.Bool != nil {
+		o.ValueEntries = append(o.ValueEntries, &MeasurementValueEntry{
+			CodePoint: MvalBool,
+			ValueType: "bool",
+			ValueInt:  boolToInt(origin.Val.Bool),
+		})
+	}
+
+	if origin.Val.Number != nil {
+		matcherValueType := identifyNumberMatcherValueType(origin.Val.Number)
+		switch matcherValueType {
+		case "int":
+			intMatcher, err := NewIntMatcherFromCoRIM(origin.Val.Number)
+			if err != nil {
+				return fmt.Errorf("number: %w", err)
+			}
+			o.IntMatcher = intMatcher
+		case "float":
+			floatMatcher, err := NewFloatMatcherFromCoRIM(origin.Val.Number)
+			if err != nil {
+				return fmt.Errorf("number: %w", err)
+			}
+			o.FloatMatcher = floatMatcher
+		default:
+			return errors.New("number matchers with a mix of int and float values are not supported")
+		}
+	}
+
+	if origin.Val.Text != nil {
+		textMatcher, err := NewTextMatcherFromCoRIM(origin.Val.Text)
+		if err != nil {
+			return fmt.Errorf("text: %w", err)
+		}
+		o.TextMatcher = textMatcher
+	}
+
+	if origin.Val.Bytes != nil {
+		bytesMatcher, err := NewBytesMatcherFromCoRIM(origin.Val.Bytes)
+		if err != nil {
+			return fmt.Errorf("bytes: %w", err)
+		}
+		o.BytesMatcher = bytesMatcher
+	}
+
 	integRegs, err := IntegerityRegistersFromCoRIM(origin.Val.IntegrityRegisters)
 	if err != nil {
 		return err
@@ -509,6 +566,13 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 			}
 
 			mval.IntRange = intRange
+		case MvalBool:
+			if entry.ValueInt == nil {
+				return nil, fmt.Errorf("missing bool data: %+v", entry)
+			}
+
+			value := *entry.ValueInt == 1
+			mval.Bool = &value
 		case MvalDigests, MvalFlags, MvalCryptoKeys:
 			return nil, fmt.Errorf(
 				"unexpected value entry for code point %d (should be in its own table)",
@@ -516,6 +580,34 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 			)
 		default:
 			return nil, fmt.Errorf("unexpected code point: %d", entry.CodePoint)
+		}
+	}
+
+	if o.IntMatcher != nil && o.FloatMatcher != nil { // nolint:gocritic
+		return nil, errors.New("number: IntMatcher and FloatMatcher cannot both be set")
+	} else if o.IntMatcher != nil {
+		mval.Number, err = o.IntMatcher.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("number: %w", err)
+		}
+	} else if o.FloatMatcher != nil {
+		mval.Number, err = o.FloatMatcher.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("number: %w", err)
+		}
+	}
+
+	if o.TextMatcher != nil {
+		mval.Text, err = o.TextMatcher.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("text: %w", err)
+		}
+	}
+
+	if o.BytesMatcher != nil {
+		mval.Bytes, err = o.BytesMatcher.ToCoRIM()
+		if err != nil {
+			return nil, fmt.Errorf("bytes: %w", err)
 		}
 	}
 
@@ -559,6 +651,34 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 }
 
 func (o *Measurement) Insert(ctx context.Context, db bun.IDB) error {
+	if o.IntMatcher != nil && o.FloatMatcher != nil { // nolint:gocritic
+		return errors.New("number: IntMatcher and FloatMatcher cannot both be set")
+	} else if o.IntMatcher != nil {
+		if err := o.IntMatcher.Insert(ctx, db); err != nil {
+			return fmt.Errorf("int-matcher: %w", err)
+		}
+		o.IntMatcherID = o.IntMatcher.ID
+	} else if o.FloatMatcher != nil {
+		if err := o.FloatMatcher.Insert(ctx, db); err != nil {
+			return fmt.Errorf("float-matcher: %w", err)
+		}
+		o.FloatMatcherID = o.FloatMatcher.ID
+	}
+
+	if o.TextMatcher != nil {
+		if err := o.TextMatcher.Insert(ctx, db); err != nil {
+			return fmt.Errorf("text-matcher: %w", err)
+		}
+		o.TextMatcherID = o.TextMatcher.ID
+	}
+
+	if o.BytesMatcher != nil {
+		if err := o.BytesMatcher.Insert(ctx, db); err != nil {
+			return fmt.Errorf("bytes-matcher: %w", err)
+		}
+		o.BytesMatcherID = o.BytesMatcher.ID
+	}
+
 	if _, err := db.NewInsert().Model(o).Exec(ctx); err != nil {
 		return err
 	}
@@ -640,6 +760,10 @@ func (o *Measurement) Select(ctx context.Context, db bun.IDB) error {
 		Relation("ValueEntries").
 		Relation("CryptoKeys").
 		Relation("Extensions").
+		Relation("IntMatcher.Values").
+		Relation("FloatMatcher.Values").
+		Relation("TextMatcher.Values").
+		Relation("BytesMatcher.Values").
 		Where("mea.id = ?", o.ID).
 		Scan(ctx)
 
@@ -694,6 +818,30 @@ func (o *Measurement) Delete(ctx context.Context, db bun.IDB) error { // nolint:
 	for i, extension := range o.Extensions {
 		if err := extension.Delete(ctx, db); err != nil {
 			return fmt.Errorf("extension at index %d: %w", i, err)
+		}
+	}
+
+	if o.IntMatcher != nil {
+		if err := o.IntMatcher.Delete(ctx, db); err != nil {
+			return fmt.Errorf("int-matcher: %w", err)
+		}
+	}
+
+	if o.FloatMatcher != nil {
+		if err := o.FloatMatcher.Delete(ctx, db); err != nil {
+			return fmt.Errorf("float-matcher: %w", err)
+		}
+	}
+
+	if o.TextMatcher != nil {
+		if err := o.TextMatcher.Delete(ctx, db); err != nil {
+			return fmt.Errorf("text-matcher: %w", err)
+		}
+	}
+
+	if o.BytesMatcher != nil {
+		if err := o.BytesMatcher.Delete(ctx, db); err != nil {
+			return fmt.Errorf("bytes-matcher: %w", err)
 		}
 	}
 
@@ -802,4 +950,34 @@ func parseVersionScheme(text string) (*swid.VersionScheme, error) {
 	}
 
 	return &ret, nil
+}
+
+func boolToInt(value *bool) *int64 {
+	var ret int64
+
+	if *value {
+		ret = 1
+	}
+
+	return &ret
+}
+
+func identifyNumberMatcherValueType(matcher *comid.NumberMatcher) string {
+	var seenInt, seenFloat bool
+
+	for value := range matcher.IterValues() {
+		if value.IsInt() {
+			seenInt = true
+		} else {
+			seenFloat = true
+		}
+	}
+
+	if seenInt && seenFloat {
+		return "mixed"
+	} else if seenInt {
+		return "int"
+	}
+
+	return "float"
 }

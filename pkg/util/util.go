@@ -1,6 +1,7 @@
 package util
 
 import (
+	"iter"
 	"slices"
 	"strings"
 )
@@ -33,4 +34,20 @@ func IsUnsignedCoRIM(buf []byte) bool {
 
 	// tag 501 -> unsigned corim
 	return slices.Equal(buf[:3], []byte{0xd9, 0x01, 0xf5})
+}
+
+// Enumerate transforms an iter.Seq[T] into iter.Seq2[int, T], with the
+// first value in Seq being the ordinal (starting at 0) of the associated
+// T within the sequence.
+// (side note: this really ought to be part of iter package...)
+func Enumerate[T any](seq iter.Seq[T]) iter.Seq2[int, T] {
+	return func(yield func(int, T) bool) {
+		i := 0
+		for v := range seq {
+			if !yield(i, v) {
+				return
+			}
+			i++
+		}
+	}
 }

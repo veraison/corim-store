@@ -41,6 +41,7 @@ func TestFlags_round_trip(t *testing.T) {
 				IsImmutable:                &trueVal,
 				IsTcb:                      &trueVal,
 				IsConfidentialityProtected: &trueVal,
+				IsRuntimeUpdatable:         &trueVal,
 			},
 			expected: []*Flag{
 				&Flag{CodePoint: IsConfiguredFlag, Value: true},
@@ -53,6 +54,7 @@ func TestFlags_round_trip(t *testing.T) {
 				&Flag{CodePoint: IsImmutableFlag, Value: true},
 				&Flag{CodePoint: IsTcbFlag, Value: true},
 				&Flag{CodePoint: IsConfidentialityProtectedFlag, Value: true},
+				&Flag{CodePoint: IsRuntimeUpdatable, Value: true},
 			},
 		},
 		{

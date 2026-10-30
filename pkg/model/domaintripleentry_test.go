@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDomainDependencyTripleEntry_Select(t *testing.T) { // nolint:dupl
+func TestTrustDependencyTripleEntry_Select(t *testing.T) { // nolint:dupl
 	ctx := context.Background()
 	db := NewTestDBWithFixtures(t, map[string][]byte{
 		"sample.yaml": conditionalAndDomainSampleFixture,
 	})
 	defer func() { assert.NoError(t, db.Close()) }()
 
-	ddte := DomainDependencyTripleEntry{TripleDbID: 1}
+	ddte := TrustDependencyTripleEntry{TripleDbID: 1}
 	err := ddte.Select(ctx, db)
 	assert.NoError(t, err)
 	assert.Equal(t, "sample-manifest", ddte.ManifestID)
@@ -37,10 +37,10 @@ func TestDomainDependencyTripleEntry_Select(t *testing.T) { // nolint:dupl
 	assert.Equal(t, ddte.ModuleTagID, moduleTag.TagID)
 }
 
-func TestDomainDependencyTripleEntry_model_methods(t *testing.T) {
-	val := DomainDependencyTripleEntry{TripleDbID: 1}
+func TestTrustDependencyTripleEntry_model_methods(t *testing.T) {
+	val := TrustDependencyTripleEntry{TripleDbID: 1}
 	assert.Equal(t, val.TripleDbID, val.DbID())
-	assert.Equal(t, "domain_dependency_triple_entries", val.TableName())
+	assert.Equal(t, "trust_dependency_triple_entries", val.TableName())
 	assert.False(t, val.IsTable())
 }
 
@@ -80,11 +80,11 @@ func TestDomainMembershipTripleEntry_model_methods(t *testing.T) {
 	assert.False(t, val.IsTable())
 }
 
-func TestDomainDependencyTripleEntry_nok(t *testing.T) { // nolint:dupl
+func TestTrustDependencyTripleEntry_nok(t *testing.T) { // nolint:dupl
 	ctx := context.Background()
 	db := NewTestDB(t)
 
-	val := DomainDependencyTripleEntry{}
+	val := TrustDependencyTripleEntry{}
 	err := val.Select(ctx, db)
 	assert.ErrorContains(t, err, "TripleDbID not set")
 
