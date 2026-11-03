@@ -19,7 +19,7 @@ type IntMatcher struct {
 	Values []*IntMatcherElement `bun:"rel:has-many,join:id=matcher_id"`
 }
 
-func NewIntMatcherFromCoRIM(origin *comid.NumberMatcher) (*IntMatcher, error) {
+func NewIntMatcherFromCoRIM(origin *comid.IntegerMatcher) (*IntMatcher, error) {
 	var matcher IntMatcher
 	if err := matcher.FromCoRIM(origin); err != nil {
 		return nil, err
@@ -99,27 +99,23 @@ func (o *IntMatcher) Delete(ctx context.Context, db bun.IDB) error { // nolint:d
 	return err
 }
 
-func (o *IntMatcher) ToCoRIM() (*comid.NumberMatcher, error) {
-	numbers := make([]comid.Number, len(o.Values))
+func (o *IntMatcher) ToCoRIM() (*comid.IntegerMatcher, error) {
+	numbers := make([]comid.Integer, len(o.Values))
 	for i, element := range o.Values {
 		ret := new(big.Int).SetUint64(element.Value)
 		if element.Sign < 0 {
 			ret.Neg(ret)
 		}
 
-		numbers[i] = comid.MustNumberFromBig(ret)
+		numbers[i] = comid.MustIntegerFromBig(ret)
 	}
 
-	return matcherFromNumbers(o.Type, numbers)
+	return matcherFromIntegers(o.Type, numbers)
 }
 
-func (o *IntMatcher) FromCoRIM(origin *comid.NumberMatcher) error {
+func (o *IntMatcher) FromCoRIM(origin *comid.IntegerMatcher) error {
 	var values []*IntMatcherElement // nolint:prealloc
-	for i, originValue := range util.Enumerate(origin.IterValues()) {
-		if !originValue.IsInt() {
-			return fmt.Errorf("float value at index %d", i)
-		}
-
+	for _, originValue := range util.Enumerate(origin.IterValues()) {
 		bigInt := originValue.BigInt()
 		values = append(values, &IntMatcherElement{
 			Sign:  bigInt.Sign(),
@@ -127,7 +123,7 @@ func (o *IntMatcher) FromCoRIM(origin *comid.NumberMatcher) error {
 		})
 	}
 
-	typ, err := identifyNumberMatcherType(origin)
+	typ, err := identifyMatcherType(origin)
 	if err != nil {
 		return err
 	}
@@ -189,7 +185,7 @@ type FloatMatcher struct {
 	Values []*FloatMatcherElement `bun:"rel:has-many,join:id=matcher_id"`
 }
 
-func NewFloatMatcherFromCoRIM(origin *comid.NumberMatcher) (*FloatMatcher, error) {
+func NewFloatMatcherFromCoRIM(origin *comid.FloatMatcher) (*FloatMatcher, error) {
 	var matcher FloatMatcher
 	if err := matcher.FromCoRIM(origin); err != nil {
 		return nil, err
@@ -269,28 +265,24 @@ func (o *FloatMatcher) Delete(ctx context.Context, db bun.IDB) error { // nolint
 	return err
 }
 
-func (o *FloatMatcher) ToCoRIM() (*comid.NumberMatcher, error) {
-	numbers := make([]comid.Number, len(o.Values))
+func (o *FloatMatcher) ToCoRIM() (*comid.FloatMatcher, error) {
+	numbers := make([]float64, len(o.Values))
 	for i, element := range o.Values {
-		numbers[i] = comid.NumberFromFloat64(element.Value)
+		numbers[i] = element.Value
 	}
 
-	return matcherFromNumbers(o.Type, numbers)
+	return matcherFromFloats(o.Type, numbers)
 }
 
-func (o *FloatMatcher) FromCoRIM(origin *comid.NumberMatcher) error {
+func (o *FloatMatcher) FromCoRIM(origin *comid.FloatMatcher) error {
 	var values []*FloatMatcherElement // nolint:prealloc
-	for i, originValue := range util.Enumerate(origin.IterValues()) {
-		if !originValue.IsFloat64() {
-			return fmt.Errorf("float value at index %d", i)
-		}
-
+	for _, originValue := range util.Enumerate(origin.IterValues()) {
 		values = append(values, &FloatMatcherElement{
-			Value: originValue.Float64(),
+			Value: originValue,
 		})
 	}
 
-	typ, err := identifyNumberMatcherType(origin)
+	typ, err := identifyMatcherType(origin)
 	if err != nil {
 		return err
 	}
@@ -657,43 +649,74 @@ func (o *BytesMatcherElement) Delete(ctx context.Context, db bun.IDB) error { //
 	return err
 }
 
-func matcherFromNumbers(matcherType string, numbers []comid.Number) (*comid.NumberMatcher, error) {
+func matcherFromIntegers(matcherType string, integers []comid.Integer) (*comid.IntegerMatcher, error) {
 	switch matcherType {
 	case comid.UnitType, comid.SetType:
-		if len(numbers) == 0 {
+		if len(integers) == 0 {
 			return nil, errors.New("no values")
 		}
 
-		return comid.NewNumberMatcher(numbers[0], numbers[1:]...), nil
+		return comid.NewIntegerMatcher(integers[0], integers[1:]...), nil
 	case comid.RangeType:
-		if len(numbers) != 2 {
-			return nil, fmt.Errorf("expected 2 values for range, got %d", len(numbers))
+		if len(integers) != 2 {
+			return nil, fmt.Errorf("expected 2 values for range, got %d", len(integers))
 		}
 
-		return comid.NewNumberRange(numbers[0], numbers[1])
+		return comid.NewIntegerRange(integers[0], integers[1])
 	case "lower-bound":
-		if len(numbers) != 1 {
-			return nil, fmt.Errorf("expected exactly 1 lower bound, got %d", len(numbers))
+		if len(integers) != 1 {
+			return nil, fmt.Errorf("expected exactly 1 lower bound, got %d", len(integers))
 		}
 
-		return comid.NewNumberLowerBound(numbers[0]), nil
+		return comid.NewIntegerLowerBound(integers[0]), nil
 	case "upper-bound":
-		if len(numbers) != 1 {
-			return nil, fmt.Errorf("expected exactly 1 upper bound, got %d", len(numbers))
+		if len(integers) != 1 {
+			return nil, fmt.Errorf("expected exactly 1 upper bound, got %d", len(integers))
 		}
 
-		return comid.NewNumberUpperBound(numbers[0]), nil
+		return comid.NewIntegerUpperBound(integers[0]), nil
 	default:
-		return nil, fmt.Errorf("unexpected number matcher type %q", matcherType)
+		return nil, fmt.Errorf("unexpected integer matcher type %q", matcherType)
 	}
 }
 
-func identifyNumberMatcherType(matcher *comid.NumberMatcher) (string, error) {
+func matcherFromFloats(matcherType string, floats []float64) (*comid.FloatMatcher, error) {
+	switch matcherType {
+	case comid.UnitType, comid.SetType:
+		if len(floats) == 0 {
+			return nil, errors.New("no values")
+		}
+
+		return comid.NewFloatMatcher(floats[0], floats[1:]...), nil
+	case comid.RangeType:
+		if len(floats) != 2 {
+			return nil, fmt.Errorf("expected 2 values for range, got %d", len(floats))
+		}
+
+		return comid.NewFloatRange(floats[0], floats[1])
+	case "lower-bound":
+		if len(floats) != 1 {
+			return nil, fmt.Errorf("expected exactly 1 lower bound, got %d", len(floats))
+		}
+
+		return comid.NewFloatLowerBound(floats[0]), nil
+	case "upper-bound":
+		if len(floats) != 1 {
+			return nil, fmt.Errorf("expected exactly 1 upper bound, got %d", len(floats))
+		}
+
+		return comid.NewFloatUpperBound(floats[0]), nil
+	default:
+		return nil, fmt.Errorf("unexpected float matcher type %q", matcherType)
+	}
+}
+
+func identifyMatcherType[T any](matcher *comid.Matcher[T]) (string, error) {
 	switch matcher.Type() {
 	case comid.MatcherTypeUnit, comid.MatcherTypeSet:
 		return matcher.Type().String(), nil
 	case comid.MatcherTypeRange:
-		intRange := matcher.Variant().(comid.RangeMatcher[comid.Number])
+		intRange := matcher.Variant().(comid.RangeMatcher[T])
 		if intRange.Upper() != nil && intRange.Lower() != nil { // nolint:gocritic
 			return comid.RangeType, nil
 		} else if intRange.Upper() != nil {
@@ -702,6 +725,6 @@ func identifyNumberMatcherType(matcher *comid.NumberMatcher) (string, error) {
 			return "lower-bound", nil
 		}
 	default:
-		return "", fmt.Errorf("unexpected int matcher type %q", matcher.Type().String())
+		return "", fmt.Errorf("unexpected matcher type %q", matcher.Type().String())
 	}
 }
