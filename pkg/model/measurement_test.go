@@ -38,7 +38,8 @@ func TestMeasurement_round_trip(t *testing.T) {
 		SetName("bar").
 		AddCryptoKey(comid.MustNewCryptoKey(testBytes, comid.BytesType)).
 		SetBool(true).
-		SetNumber(comid.NewNumberMatcher(comid.NumberFromFloat64(1.0))).
+		SetInteger(comid.NewIntegerMatcher(comid.IntegerFromInt(1))).
+		SetFloat(comid.NewFloatMatcher(1.0)).
 		SetText(comid.NewTextMatcher("foo")).
 		SetBytes(comid.NewBytesMatcher(testBytes))
 
@@ -78,7 +79,8 @@ func TestMeasurement_round_trip(t *testing.T) {
 	assert.Equal(t, comid.TestUUID, *selectedMeas.Val.UUID)
 	assert.Equal(t, "bar", *selectedMeas.Val.Name)
 	assert.Equal(t, true, *selectedMeas.Val.Bool)
-	assert.Equal(t, comid.NumberFromFloat64(1.0), selectedMeas.Val.Number.Variant().UnitValue())
+	assert.Equal(t, int64(1), selectedMeas.Val.Integer.Variant().UnitValue().Int64())
+	assert.Equal(t, 1.0, selectedMeas.Val.Float.Variant().UnitValue())
 	assert.Equal(t, "foo", selectedMeas.Val.Text.Variant().UnitValue())
 	assert.Equal(t, testBytes, selectedMeas.Val.Bytes.Variant().UnitValue())
 
@@ -92,25 +94,6 @@ func TestMeasurement_round_trip(t *testing.T) {
 	assert.Equal(t, testBytes, (*selectedMeas.Val.CryptoKeys)[0].Value.Bytes())
 	assert.NotNil(t, selectedMeas.AuthorizedBy)
 	assert.Equal(t, comid.TestECPubKey, (*selectedMeas.AuthorizedBy)[0].Value.String())
-
-	meas, err = comid.NewUUIDMeasurement(comid.TestUUID)
-	require.NoError(t, err)
-	meas = meas.SetNumber(comid.NewNumberMatcher(comid.NumberFromInt(1)))
-
-	model = Measurement{}
-	err = model.FromCoRIM(meas)
-	assert.NoError(t, err)
-
-	err = model.Insert(ctx, db)
-	assert.NoError(t, err)
-
-	selectedModel, err = SelectMeasurement(ctx, db, model.ID)
-	assert.NoError(t, err)
-
-	selectedMeas, err = selectedModel.ToCoRIM()
-	assert.NoError(t, err)
-
-	assert.Equal(t, comid.NumberFromInt(1), selectedMeas.Val.Number.Variant().UnitValue())
 }
 
 func newBoolMkey(val any) (*comid.Mkey, error) {

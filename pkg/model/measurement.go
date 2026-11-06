@@ -350,24 +350,20 @@ func (o *Measurement) FromCoRIM(origin *comid.Measurement) error {
 		})
 	}
 
-	if origin.Val.Number != nil {
-		matcherValueType := identifyNumberMatcherValueType(origin.Val.Number)
-		switch matcherValueType {
-		case "int":
-			intMatcher, err := NewIntMatcherFromCoRIM(origin.Val.Number)
-			if err != nil {
-				return fmt.Errorf("number: %w", err)
-			}
-			o.IntMatcher = intMatcher
-		case "float":
-			floatMatcher, err := NewFloatMatcherFromCoRIM(origin.Val.Number)
-			if err != nil {
-				return fmt.Errorf("number: %w", err)
-			}
-			o.FloatMatcher = floatMatcher
-		default:
-			return errors.New("number matchers with a mix of int and float values are not supported")
+	if origin.Val.Integer != nil {
+		intMatcher, err := NewIntMatcherFromCoRIM(origin.Val.Integer)
+		if err != nil {
+			return fmt.Errorf("integer: %w", err)
 		}
+		o.IntMatcher = intMatcher
+	}
+
+	if origin.Val.Float != nil {
+		floatMatcher, err := NewFloatMatcherFromCoRIM(origin.Val.Float)
+		if err != nil {
+			return fmt.Errorf("number: %w", err)
+		}
+		o.FloatMatcher = floatMatcher
 	}
 
 	if origin.Val.Text != nil {
@@ -583,15 +579,15 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 		}
 	}
 
-	if o.IntMatcher != nil && o.FloatMatcher != nil { // nolint:gocritic
-		return nil, errors.New("number: IntMatcher and FloatMatcher cannot both be set")
-	} else if o.IntMatcher != nil {
-		mval.Number, err = o.IntMatcher.ToCoRIM()
+	if o.IntMatcher != nil {
+		mval.Integer, err = o.IntMatcher.ToCoRIM()
 		if err != nil {
 			return nil, fmt.Errorf("number: %w", err)
 		}
-	} else if o.FloatMatcher != nil {
-		mval.Number, err = o.FloatMatcher.ToCoRIM()
+	}
+
+	if o.FloatMatcher != nil {
+		mval.Float, err = o.FloatMatcher.ToCoRIM()
 		if err != nil {
 			return nil, fmt.Errorf("number: %w", err)
 		}
@@ -651,14 +647,14 @@ func (o *Measurement) ToCoRIM() (*comid.Measurement, error) {
 }
 
 func (o *Measurement) Insert(ctx context.Context, db bun.IDB) error {
-	if o.IntMatcher != nil && o.FloatMatcher != nil { // nolint:gocritic
-		return errors.New("number: IntMatcher and FloatMatcher cannot both be set")
-	} else if o.IntMatcher != nil {
+	if o.IntMatcher != nil {
 		if err := o.IntMatcher.Insert(ctx, db); err != nil {
 			return fmt.Errorf("int-matcher: %w", err)
 		}
 		o.IntMatcherID = o.IntMatcher.ID
-	} else if o.FloatMatcher != nil {
+	}
+
+	if o.FloatMatcher != nil {
 		if err := o.FloatMatcher.Insert(ctx, db); err != nil {
 			return fmt.Errorf("float-matcher: %w", err)
 		}
@@ -960,24 +956,4 @@ func boolToInt(value *bool) *int64 {
 	}
 
 	return &ret
-}
-
-func identifyNumberMatcherValueType(matcher *comid.NumberMatcher) string {
-	var seenInt, seenFloat bool
-
-	for value := range matcher.IterValues() {
-		if value.IsInt() {
-			seenInt = true
-		} else {
-			seenFloat = true
-		}
-	}
-
-	if seenInt && seenFloat {
-		return "mixed"
-	} else if seenInt {
-		return "int"
-	}
-
-	return "float"
 }

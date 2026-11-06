@@ -16,33 +16,33 @@ func TestIntMatcher_round_trip(t *testing.T) { // nolint:dupl
 
 	testCases := []struct {
 		title   string
-		matcher *comid.NumberMatcher
+		matcher *comid.IntegerMatcher
 	}{
 		{
 			title:   "unit",
-			matcher: comid.NewNumberMatcher(comid.NumberFromInt(1)),
+			matcher: comid.NewIntegerMatcher(comid.IntegerFromInt(1)),
 		},
 		{
 			title: "set",
-			matcher: comid.NewNumberMatcher(
-				comid.NumberFromInt(1),
-				comid.NumberFromInt(2),
+			matcher: comid.NewIntegerMatcher(
+				comid.IntegerFromInt(1),
+				comid.IntegerFromInt(2),
 			),
 		},
 		{
 			title: "range",
-			matcher: comid.MustNewNumberRange(
-				comid.NumberFromInt(1),
-				comid.NumberFromInt(2),
+			matcher: comid.MustNewIntegerRange(
+				comid.IntegerFromInt(1),
+				comid.IntegerFromInt(2),
 			),
 		},
 		{
 			title:   "lower bound",
-			matcher: comid.NewNumberLowerBound(comid.NumberFromInt(1)),
+			matcher: comid.NewIntegerLowerBound(comid.IntegerFromInt(1)),
 		},
 		{
 			title:   "upper bound",
-			matcher: comid.NewNumberUpperBound(comid.NumberFromInt(2)),
+			matcher: comid.NewIntegerUpperBound(comid.IntegerFromInt(2)),
 		},
 	}
 
@@ -125,33 +125,27 @@ func TestFloatMatcher_round_trip(t *testing.T) { // nolint:dupl
 
 	testCases := []struct {
 		title   string
-		matcher *comid.NumberMatcher
+		matcher *comid.FloatMatcher
 	}{
 		{
 			title:   "unit",
-			matcher: comid.NewNumberMatcher(comid.NumberFromFloat64(1.5)),
+			matcher: comid.NewFloatMatcher(1.5),
 		},
 		{
-			title: "set",
-			matcher: comid.NewNumberMatcher(
-				comid.NumberFromFloat64(1.5),
-				comid.NumberFromFloat64(2.5),
-			),
+			title:   "set",
+			matcher: comid.NewFloatMatcher(1.5, 2.5),
 		},
 		{
-			title: "range",
-			matcher: comid.MustNewNumberRange(
-				comid.NumberFromFloat64(1.5),
-				comid.NumberFromFloat64(2.5),
-			),
+			title:   "range",
+			matcher: comid.MustNewFloatRange(1.5, 2.5),
 		},
 		{
 			title:   "lower bound",
-			matcher: comid.NewNumberLowerBound(comid.NumberFromFloat64(1.5)),
+			matcher: comid.NewFloatLowerBound(1.5),
 		},
 		{
 			title:   "upper bound",
-			matcher: comid.NewNumberUpperBound(comid.NumberFromFloat64(2.5)),
+			matcher: comid.NewFloatUpperBound(2.5),
 		},
 	}
 
